@@ -198,7 +198,7 @@ export default function AdminContentManager() {
 
   const navigationDestinations = [
     ...pageDestinations.map(([key, label]) => ({ value: key, label })),
-    ...catalogOptions.categories.map((category) => ({ value: `category:${category.key}`, label: category.label })),
+    ...catalogOptions.categories.filter((category) => category.active).map((category) => ({ value: `category:${category.key}`, label: `Category page — ${category.label}` })),
   ];
 
   const addNavigationItem = () => {
@@ -259,6 +259,7 @@ export default function AdminContentManager() {
       </section>
       <section className="space-y-3 border-t border-black/10 pt-4">
         <h3 className="text-sm font-bold">Hamburger menu</h3>
+        <p className="text-xs text-gray-500">For a category page link, first add and activate that category under Product categories above. It will then appear in the destination list.</p>
         <div className="grid gap-2 sm:grid-cols-[1fr_10rem_12rem_auto]">
           <input value={newNavigationLabel} onChange={(event) => setNewNavigationLabel(event.target.value)} placeholder="Menu label" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
           <select value={newNavigationType} onChange={(event) => setNewNavigationType(event.target.value as 'link' | 'dropdown')} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="link">Link</option><option value="dropdown">Dropdown</option></select>
