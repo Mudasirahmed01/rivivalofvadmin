@@ -78,6 +78,11 @@ export default function AdminContentManager() {
     if (mode === 'settings') {
       const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
       setProductCategories([...new Set(products.map((product) => product.category))].sort());
+      const savedCatalogOptions = storeSettings.catalog_options || { categories: [], placements: [] };
+      const missingCatalogCategories = [...new Set(products.map((product) => product.category))]
+        .filter((key) => !savedCatalogOptions.categories.some((category: any) => category.key === key))
+        .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((product) => product.category === key && product.variants.length > 0), active: true }));
+      setCatalogOptions({ ...savedCatalogOptions, categories: [...savedCatalogOptions.categories, ...missingCatalogCategories] });
       const storefrontVisibility = storeSettings.storefront_visibility || {};
       setSettings({
         free_shipping_threshold: String(storeSettings.checkout?.free_shipping_threshold || ''),
