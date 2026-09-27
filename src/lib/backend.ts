@@ -309,8 +309,11 @@ class BackendService {
         if (imageError) throw imageError;
       }
 
+      if (id) {
+        const { error: deleteVariantsError } = await supabase.from('product_variants').delete().eq('product_id', productId);
+        if (deleteVariantsError) throw deleteVariantsError;
+      }
       if (variants.length > 0) {
-        await supabase.from('product_variants').delete().eq('product_id', productId);
         const { error: variantError } = await supabase.from('product_variants').insert(
           variants.map((variant) => ({ size: variant.size, stock_count: variant.stockCount, sku: variant.sku, product_id: productId }))
         );
