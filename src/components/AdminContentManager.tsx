@@ -2,6 +2,22 @@ import { useEffect, useState } from 'react';
 import BackendService from '../lib/backend';
 
 type ContentMode = 'banners' | 'categories' | 'catalog' | 'settings';
+type MenuEntry = { id: string; label: string; destination: string; type: 'link' | 'dropdown'; active: boolean; children: MenuEntry[] };
+
+const pageDestinations = [
+  ['home', 'Home'], ['all-products', 'All Products'], ['new-releases', 'New Releases'],
+  ['best-sellers', 'Best Sellers'], ['shirts', 'Shirts'], ['pants', 'Pants'],
+  ['account', 'Account'], ['auth', 'Sign in'], ['checkout', 'Checkout'],
+  ['wishlist', 'Wishlist'], ['shipping', 'Shipping & Returns'], ['terms', 'Terms'],
+  ['privacy', 'Privacy'], ['contact', 'Contact'],
+];
+
+const defaultMenu = (categories: Array<{ key: string; label: string }>): MenuEntry[] => [
+  { id: 'nav-home', label: 'HOME', destination: 'home', type: 'link', active: true, children: [] },
+  { id: 'nav-new-releases', label: 'NEW RELEASES', destination: 'new-releases', type: 'link', active: true, children: [] },
+  { id: 'nav-best-sellers', label: 'BEST SELLERS', destination: 'best-sellers', type: 'link', active: true, children: [] },
+  { id: 'nav-categories', label: 'CATEGORIES', destination: '', type: 'dropdown', active: true, children: categories.map((category) => ({ id: `category-${category.key}`, label: category.label.toUpperCase(), destination: `category:${category.key}`, type: 'link', active: true, children: [] })) },
+];
 
 const emptyBanner = { pre_title: '', headline: '', subheadline: '', cta: 'SHOP NOW', image_url: '', display_order: 0, is_active: true };
 const emptyCategory = { title: '', subtitle: '', image_url: '', page: 'shirts', display_order: 0, is_active: true };
@@ -28,6 +44,12 @@ export default function AdminContentManager() {
   const [message, setMessage] = useState('');
   const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '', brand_statement: '' });
   const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
+  const [navigationItems, setNavigationItems] = useState<MenuEntry[]>([]);
+  const [newNavigationLabel, setNewNavigationLabel] = useState('');
+  const [newNavigationDestination, setNewNavigationDestination] = useState('home');
+  const [newNavigationType, setNewNavigationType] = useState<'link' | 'dropdown'>('link');
+  const [newChildLabels, setNewChildLabels] = useState<Record<string, string>>({});
+  const [newChildDestinations, setNewChildDestinations] = useState<Record<string, string>>({});
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
   const [newCategoryRequiresSize, setNewCategoryRequiresSize] = useState(false);
   const [newPlacementLabel, setNewPlacementLabel] = useState('');
@@ -40,7 +62,9 @@ export default function AdminContentManager() {
       const missingCategories = [...new Set(products.map((product) => product.category))]
         .filter((key) => !options.categories.some((category: any) => category.key === key))
         .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((product) => product.category === key && product.variants.length > 0), active: true }));
-      setCatalogOptions({ ...options, categories: [...options.categories, ...missingCategories] });
+      const categories = [...options.categories, ...missingCategories];
+      setCatalogOptions({ ...options, categories, placements: Array.isArray(options.placements) ? options.placements : [] });
+      setNavigationItems(storeSettings.storefront_navigation?.items || defaultMenu(categories.filter((category: any) => category.active)));
       return;
     }
     if (mode === 'settings') {
@@ -78,8 +102,11 @@ export default function AdminContentManager() {
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (mode === 'catalog') {
-      const saved = await BackendService.saveStoreSetting('catalog_options', catalogOptions);
-      setMessage(saved ? 'Catalog options saved.' : 'Could not save catalog options. Check admin access to store_settings.');
+      const saved = await Promise.all([
+        BackendService.saveStoreSetting('catalog_options', catalogOptions),
+        BackendService.saveStoreSetting('storefront_navigation', { items: navigationItems }),
+      ]);
+      setMessage(saved.every(Boolean) ? 'Catalog options and menu saved.' : 'Could not save catalog/menu settings. Check admin access to store_settings.');
       return;
     }
     if (mode === 'settings') {
@@ -147,6 +174,31 @@ export default function AdminContentManager() {
     setNewPlacementLabel('');
   };
 
+  const navigationDestinations = [
+    ...pageDestinations.map(([key, label]) => ({ value: key, label })),
+    ...catalogOptions.categories.map((category) => ({ value: `category:${category.key}`, label: category.label })),
+  ];
+
+  const addNavigationItem = () => {
+    const label = newNavigationLabel.trim();
+    if (!label) return;
+    const item: MenuEntry = {
+      id: crypto.randomUUID(), label, destination: newNavigationType === 'link' ? newNavigationDestination : '',
+      type: newNavigationType, active: true, children: [],
+    };
+    setNavigationItems((current) => [...current, item]);
+    setNewNavigationLabel('');
+  };
+
+  const addNavigationChild = (parentId: string) => {
+    const label = (newChildLabels[parentId] || '').trim();
+    if (!label) return;
+    const destination = newChildDestinations[parentId] || navigationDestinations[0]?.value || 'home';
+    const child: MenuEntry = { id: crypto.randomUUID(), label, destination, type: 'link', active: true, children: [] };
+    setNavigationItems((current) => current.map((item) => item.id === parentId ? { ...item, children: [...item.children, child] } : item));
+    setNewChildLabels((current) => ({ ...current, [parentId]: '' }));
+  };
+
   return <div className="space-y-5">
     <div className="flex flex-wrap gap-2">
       <button onClick={() => setMode('banners')} className={`rounded-full px-4 py-2 text-sm ${mode === 'banners' ? 'bg-black text-white' : 'bg-white'}`}>Hero Banners</button>
@@ -181,6 +233,37 @@ export default function AdminContentManager() {
           <input value={placement.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, placements: current.placements.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
           <code className="text-xs text-gray-500">{placement.key}</code>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={placement.active} onChange={(event) => setCatalogOptions((current) => ({ ...current, placements: current.placements.map((item, itemIndex) => itemIndex === index ? { ...item, active: event.target.checked } : item) }))} /> Active</label>
+        </div>)}
+      </section>
+      <section className="space-y-3 border-t border-black/10 pt-4">
+        <h3 className="text-sm font-bold">Hamburger menu</h3>
+        <div className="grid gap-2 sm:grid-cols-[1fr_10rem_12rem_auto]">
+          <input value={newNavigationLabel} onChange={(event) => setNewNavigationLabel(event.target.value)} placeholder="Menu label" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+          <select value={newNavigationType} onChange={(event) => setNewNavigationType(event.target.value as 'link' | 'dropdown')} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="link">Link</option><option value="dropdown">Dropdown</option></select>
+          {newNavigationType === 'link' && <select value={newNavigationDestination} onChange={(event) => setNewNavigationDestination(event.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm">{navigationDestinations.map((destination) => <option key={destination.value} value={destination.value}>{destination.label}</option>)}</select>}
+          <button type="button" onClick={addNavigationItem} className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add menu item</button>
+        </div>
+        {navigationItems.map((item, index) => <div key={item.id} className="space-y-2 border-t border-black/5 pt-3">
+          <div className="grid items-center gap-2 sm:grid-cols-[1fr_10rem_12rem_auto_auto]">
+            <input value={item.label} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, label: event.target.value } : entry))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+            <select value={item.type} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, type: event.target.value as 'link' | 'dropdown', destination: event.target.value === 'dropdown' ? '' : (entry.destination || 'home') } : entry))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm"><option value="link">Link</option><option value="dropdown">Dropdown</option></select>
+            {item.type === 'link' ? <select value={item.destination} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, destination: event.target.value } : entry))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm">{navigationDestinations.map((destination) => <option key={destination.value} value={destination.value}>{destination.label}</option>)}</select> : <span className="text-xs text-gray-500">Dropdown group</span>}
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={item.active} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, active: event.target.checked } : entry))} /> Active</label>
+            <button type="button" onClick={() => setNavigationItems((current) => current.filter((entry) => entry.id !== item.id))} className="text-sm text-red-600">Remove</button>
+          </div>
+          {item.type === 'dropdown' && <div className="ml-4 space-y-2 border-l-2 border-black/10 pl-3">
+            {item.children.map((child, childIndex) => <div key={child.id} className="grid items-center gap-2 sm:grid-cols-[1fr_12rem_auto_auto]">
+              <input value={child.label} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, children: entry.children.map((nested, nestedIndex) => nestedIndex === childIndex ? { ...nested, label: event.target.value } : nested) } : entry))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+              <select value={child.destination} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, children: entry.children.map((nested, nestedIndex) => nestedIndex === childIndex ? { ...nested, destination: event.target.value } : nested) } : entry))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm">{navigationDestinations.map((destination) => <option key={destination.value} value={destination.value}>{destination.label}</option>)}</select>
+              <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={child.active} onChange={(event) => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, children: entry.children.map((nested, nestedIndex) => nestedIndex === childIndex ? { ...nested, active: event.target.checked } : nested) } : entry))} /> Active</label>
+              <button type="button" onClick={() => setNavigationItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, children: entry.children.filter((nested) => nested.id !== child.id) } : entry))} className="text-xs text-red-600">Remove</button>
+            </div>)}
+            <div className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
+              <input value={newChildLabels[item.id] || ''} onChange={(event) => setNewChildLabels((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Dropdown link label" className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+              <select value={newChildDestinations[item.id] || navigationDestinations[0]?.value || 'home'} onChange={(event) => setNewChildDestinations((current) => ({ ...current, [item.id]: event.target.value }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm">{navigationDestinations.map((destination) => <option key={destination.value} value={destination.value}>{destination.label}</option>)}</select>
+              <button type="button" onClick={() => addNavigationChild(item.id)} className="rounded-full border border-black/10 px-3 py-2 text-sm">Add dropdown link</button>
+            </div>
+          </div>}
         </div>)}
       </section>
       <button disabled={saving} className="w-fit rounded-full bg-black px-5 py-3 text-sm font-semibold text-white">Save Catalog Options</button>
