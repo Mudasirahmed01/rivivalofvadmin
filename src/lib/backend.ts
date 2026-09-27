@@ -1027,6 +1027,24 @@ class BackendService {
     return data || [];
   }
 
+  static async getAllCustomerAddresses(): Promise<any[]> {
+    const { data, error } = await supabase.from('addresses').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching customer addresses:', error);
+      return [];
+    }
+    return data || [];
+  }
+
+  static async getNewsletterSubscribers(): Promise<any[]> {
+    const { data, error } = await supabase.from('newsletter_subscribers').select('*').order('consented_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching newsletter subscribers:', error);
+      return [];
+    }
+    return data || [];
+  }
+
   // ============================================
   // STATS
   // ============================================

@@ -19,6 +19,9 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [customerAddresses, setCustomerAddresses] = useState<any[]>([]);
+  const [newsletterSubscribers, setNewsletterSubscribers] = useState<any[]>([]);
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -30,15 +33,19 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
 
   const loadData = async () => {
-    const [allProducts, allOrders, allUsers] = await Promise.all([
+    const [allProducts, allOrders, allUsers, allAddresses, allSubscribers] = await Promise.all([
       BackendService.getProducts(),
       BackendService.getAllOrders(),
       BackendService.getUsers(),
+      BackendService.getAllCustomerAddresses(),
+      BackendService.getNewsletterSubscribers(),
     ]);
 
     setProducts(allProducts);
     setOrders(allOrders);
     setUsers(allUsers);
+    setCustomerAddresses(allAddresses);
+    setNewsletterSubscribers(allSubscribers);
     setStats({
       totalProducts: allProducts.length,
       totalOrders: allOrders.length,
@@ -371,30 +378,40 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-2xl p-6 border border-black/5"
           >
-            <h2 className="text-xl font-bold text-[#111] mb-6">All Customers</h2>
-
+            <h2 className="text-xl font-bold text-[#111] mb-6">Customer accounts</h2>
             <div className="space-y-3">
-              {users.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 bg-[#F5F5F7] rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center font-bold">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#111]">{user.name}</p>
-                      <p className="text-xs text-gray-600">{user.email}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-600">
-                      Joined {new Date(user.createdAt).toLocaleDateString('en-PK')}
-                    </p>
-                    <span className="text-xs px-2 py-1 bg-black/5 rounded-full text-gray-700 capitalize">
-                      {user.role}
-                    </span>
-                  </div>
-                </div>
-              ))}
+              {users.map((user) => {
+                const customerId = user.id || user.user_id;
+                const email = user.email || user.customer_email || '';
+                const name = user.name || user.full_name || email.split('@')[0] || 'Customer';
+                const customerOrders = orders.filter((order: any) => order.user_id === customerId || (email && order.userEmail?.toLowerCase() === email.toLowerCase()));
+                const addresses = customerAddresses.filter((address) => address.user_id === customerId);
+                const isExpanded = expandedCustomer === customerId;
+                return <div key={customerId || email} className="overflow-hidden rounded-xl bg-[#F5F5F7]">
+                  <button type="button" onClick={() => setExpandedCustomer(isExpanded ? null : customerId)} className="flex w-full items-center justify-between gap-4 p-4 text-left">
+                    <div><p className="text-sm font-semibold text-[#111]">{name}</p><p className="text-xs text-gray-600">{email || 'Email unavailable'}{user.phone ? ` · ${user.phone}` : ''}</p></div>
+                    <div className="text-right"><p className="text-xs text-gray-600">{customerOrders.length} orders · {addresses.length} saved addresses</p><p className="text-xs font-semibold">{isExpanded ? 'Hide details' : 'View details'}</p></div>
+                  </button>
+                  {isExpanded && <div className="grid gap-4 border-t border-black/10 bg-white p-4 md:grid-cols-2">
+                    <section className="space-y-2"><h3 className="text-xs font-bold uppercase text-gray-500">Orders</h3>
+                      {customerOrders.length ? customerOrders.map((order: any) => <div key={order.id} className="rounded-lg bg-[#F5F5F7] p-3 text-xs"><div className="flex justify-between gap-2"><span>{order.id}</span><strong>{formatPKR(order.total)}</strong></div><p className="mt-1 text-gray-500">{formatOrderDate(order.createdAt)} · {order.status}</p></div>) : <p className="text-xs text-gray-500">No orders for this account.</p>}
+                    </section>
+                    <section className="space-y-2"><h3 className="text-xs font-bold uppercase text-gray-500">Saved addresses</h3>
+                      {addresses.length ? addresses.map((address) => <div key={address.id} className="rounded-lg bg-[#F5F5F7] p-3 text-xs"><strong>{address.label || 'Address'}</strong><p>{[address.first_name, address.last_name, address.address, address.city, address.state, address.zip_code, address.country].filter(Boolean).join(', ')}</p><p>{address.phone}</p></div>) : <p className="text-xs text-gray-500">No saved addresses.</p>}
+                    </section>
+                  </div>}
+                </div>;
+              })}
+              {!users.length && <p className="text-sm text-gray-500">No registered customer profiles found.</p>}
+            </div>
+
+            <div className="mt-10 border-t border-black/10 pt-6">
+              <h2 className="text-xl font-bold text-[#111]">Footer email subscribers</h2>
+              <p className="mt-1 text-xs text-gray-500">Only addresses that explicitly opted in through the footer appear here.</p>
+              <div className="mt-4 space-y-2">
+                {newsletterSubscribers.map((subscriber) => <div key={subscriber.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#F5F5F7] p-3 text-sm"><div><p className="font-semibold">{subscriber.email}</p><p className="text-xs text-gray-500">Consented {formatOrderDate(subscriber.consented_at)} · Source: {subscriber.source}</p></div><span className={`text-xs font-semibold ${subscriber.unsubscribed_at ? 'text-gray-500' : 'text-green-700'}`}>{subscriber.unsubscribed_at ? 'Unsubscribed' : 'Consented'}</span></div>)}
+                {!newsletterSubscribers.length && <p className="text-sm text-gray-500">No footer subscribers yet.</p>}
+              </div>
             </div>
           </motion.div>
         )}
