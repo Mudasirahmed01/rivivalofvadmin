@@ -32,6 +32,31 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     event.preventDefault();
     setSaving(true);
     setError('');
+    const normalizedSlug = form.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const normalizedVariants = variants.map((variant) => ({
+      ...variant,
+      size: variant.size.trim().toUpperCase(),
+      sku: variant.sku.trim() || `${normalizedSlug}-${variant.size.trim().toLowerCase()}`,
+    }));
+    const localSkus = normalizedVariants.map((variant) => variant.sku.toLowerCase());
+    if (new Set(localSkus).size !== localSkus.length) {
+      setSaving(false);
+      setError('Each size must have a different SKU.');
+      return;
+    }
+    try {
+      const duplicates = await BackendService.findDuplicateSkus(normalizedVariants.map((variant) => variant.sku), product?.id);
+      if (duplicates.length) {
+        setSaving(false);
+        setError(`SKU already exists: ${duplicates.join(', ')}. Use a unique SKU.`);
+        return;
+      }
+    } catch (validationError) {
+      console.error('SKU validation failed:', validationError);
+      setSaving(false);
+      setError('Could not check SKU availability. Verify admin access to product_variants, then retry.');
+      return;
+    }
     const payload = {
       ...form,
       price: Number(form.price),
@@ -40,10 +65,10 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       category: form.category as Product['category'],
       homepageSlot: form.homepageSlot as Product['homepageSlot'],
     };
-    const saved = await BackendService.saveProduct(payload, images, variants, product?.id);
+    const saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id);
     setSaving(false);
     if (!saved) {
-      setError('Could not save product. Check Supabase permissions and required fields.');
+      setError('Could not save product. SKU must be unique; also verify Supabase product, image and variant policies.');
       return;
     }
     onSaved();

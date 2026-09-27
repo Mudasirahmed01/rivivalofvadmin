@@ -79,6 +79,16 @@ const toDatabaseProduct = (product: Partial<Product>) => {
 // ============================================
 
 class BackendService {
+  static async findDuplicateSkus(skus: string[], excludeProductId?: string): Promise<string[]> {
+    const uniqueSkus = [...new Set(skus.map((sku) => sku.trim()).filter(Boolean))];
+    if (uniqueSkus.length === 0) return [];
+    let query = supabase.from('product_variants').select('sku,product_id').in('sku', uniqueSkus);
+    if (excludeProductId) query = query.neq('product_id', excludeProductId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((row) => row.sku);
+  }
+
   /**
    * Get all published products
    */
@@ -246,8 +256,10 @@ class BackendService {
     variants: Array<{ size: string; stockCount: number; sku: string }>,
     id?: string
   ): Promise<Product | null> {
+    let createdProductId: string | null = null;
+    let uploadedImages: Awaited<ReturnType<typeof uploadMultipleToCloudinary>> = [];
     try {
-      const uploadedImages = images.length
+      uploadedImages = images.length
         ? await uploadMultipleToCloudinary(images, 'products')
         : [];
       const productPayload = toDatabaseProduct(product);
@@ -258,6 +270,7 @@ class BackendService {
       if (productError || !productData) throw productError || new Error('Product was not saved');
 
       const productId = productData.id;
+      if (!id) createdProductId = productId;
       if (uploadedImages.length > 0) {
         if (id) {
           const { data: oldImages } = await supabase
@@ -296,6 +309,8 @@ class BackendService {
       return normalizeProduct({ ...productData, images: [], variants: [] });
     } catch (error) {
       console.error('Error saving product:', error);
+      if (createdProductId) await supabase.from('products').delete().eq('id', createdProductId);
+      await Promise.all(uploadedImages.map((image) => this.deleteCloudinaryAsset(image.public_id)));
       return null;
     }
   }

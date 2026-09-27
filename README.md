@@ -12,7 +12,17 @@ copy .env.example .env
 npm run dev
 ```
 
-Set the four public client variables in `.env`. The Supabase account must have `app_metadata.role` set to `admin`. Run the database SQL migrations from the customer-store repository once before using the admin app.
+Set the four public client variables in `.env`. The Supabase account must have `app_metadata.role` set to `admin`.
+
+Before creating products, run these SQL files from the customer-store repository in Supabase Dashboard → SQL Editor, in order:
+
+1. `SUPABASE_RLS_FIX.sql` (defines `public.is_admin()` and product policies)
+2. `SUPABASE_ADMIN_SCHEMA.sql`
+3. `ADMIN_PRODUCT_MEDIA_RLS.sql` (allows admins to write product images and variants)
+4. `ADMIN_STORE_SETTINGS.sql`
+5. `SUPABASE_PRODUCT_MEDIA_SEED.sql`
+
+If product creation reports `42501` on `product_images` or `product_variants`, the third migration has not been applied to the same Supabase project used by this admin app.
 
 ## Vercel deployment
 
