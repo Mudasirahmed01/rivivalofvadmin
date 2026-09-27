@@ -16,16 +16,24 @@ export default function AdminContentManager() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '', brand_statement: '' });
+  const [visibility, setVisibility] = useState({ disabledCategories: [] as string[], disabledSections: [] as string[], disabledPages: [] as string[] });
 
   const load = async () => {
     if (mode === 'settings') {
-      const storeSettings = await BackendService.getStoreSettings();
+      const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
+      setProductCategories([...new Set(products.map((product) => product.category))].sort());
+      const storefrontVisibility = storeSettings.storefront_visibility || {};
       setSettings({
         free_shipping_threshold: String(storeSettings.checkout?.free_shipping_threshold || ''),
         delivery_charge: String(storeSettings.checkout?.delivery_charge || ''),
         tax_rate: String(storeSettings.checkout?.tax_rate || ''),
         marquee_items: (storeSettings.marquee?.items || []).join('\n'),
         brand_statement: String(storeSettings.brand_statement?.text || 'We do not design apparel for a single season. Revival of V builds architectural silhouettes designed to endure time, movement, and perception.'),
+      });
+      setVisibility({
+        disabledCategories: Array.isArray(storefrontVisibility.disabled_categories) ? storefrontVisibility.disabled_categories : [],
+        disabledSections: Array.isArray(storefrontVisibility.disabled_sections) ? storefrontVisibility.disabled_sections : [],
+        disabledPages: Array.isArray(storefrontVisibility.disabled_pages) ? storefrontVisibility.disabled_pages : [],
       });
       return;
     }
@@ -54,6 +62,11 @@ export default function AdminContentManager() {
         }),
         BackendService.saveStoreSetting('marquee', { items: settings.marquee_items.split('\n').map((item) => item.trim()).filter(Boolean) }),
         BackendService.saveStoreSetting('brand_statement', { text: settings.brand_statement.trim() }),
+        BackendService.saveStoreSetting('storefront_visibility', {
+          disabled_categories: visibility.disabledCategories,
+          disabled_sections: visibility.disabledSections,
+          disabled_pages: visibility.disabledPages,
+        }),
       ]);
       setMessage(saved.every(Boolean) ? 'Store settings saved.' : 'Settings save failed.');
       return;
@@ -94,6 +107,64 @@ export default function AdminContentManager() {
       <input required type="number" min="0" max="100" step="0.1" value={settings.tax_rate} onChange={(e) => setSettings((current) => ({ ...current, tax_rate: e.target.value }))} placeholder="Tax rate (%)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <textarea required value={settings.marquee_items} onChange={(e) => setSettings((current) => ({ ...current, marquee_items: e.target.value }))} placeholder="Marquee item per line" className="min-h-28 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       <textarea required value={settings.brand_statement} onChange={(e) => setSettings((current) => ({ ...current, brand_statement: e.target.value }))} placeholder="Homepage brand statement" className="min-h-36 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+      <fieldset className="grid gap-3 border-t border-black/10 pt-4 md:col-span-2">
+        <legend className="px-1 text-sm font-semibold">Storefront visibility</legend>
+        <p className="text-xs text-gray-500">Turn sections off without deleting products or content. You can enable them again anytime.</p>
+        <p className="text-xs font-semibold text-gray-600">Product categories</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[...new Set(['tops', 'bottoms', ...productCategories])].map((category) => (
+            <label key={category} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={visibility.disabledCategories.includes(category)} onChange={(event) => setVisibility((current) => ({ ...current, disabledCategories: event.target.checked ? [...current.disabledCategories, category] : current.disabledCategories.filter((item) => item !== category) }))} /> Hide {category === 'tops' ? 'Shirts' : category === 'bottoms' ? 'Pants' : category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</label>
+          ))}
+        </div>
+        <p className="border-t border-black/10 pt-3 text-xs font-semibold text-gray-600">Homepage elements</p>
+        <div className="grid gap-3 border-t border-black/10 pt-3 sm:grid-cols-2">
+          {[
+            ['hero', 'Hero banner'],
+            ['header', 'Header / hamburger menu'],
+            ['search', 'Search controls'],
+            ['toast-container', 'Toast notifications'],
+            ['marquee', 'Announcement marquee'],
+            ['features', 'Store feature strip'],
+            ['brand-statement', 'Brand statement'],
+            ['new-releases', 'Latest Drops / New Releases'],
+            ['best-sellers', 'Best Sellers'],
+            ['complete-collection', 'Complete Collection'],
+            ['shop-by-category', 'Shop by Category'],
+            ['recently-viewed', 'Recently Viewed'],
+            ['footer', 'Footer'],
+            ['cart-drawer', 'Cart drawer'],
+            ['back-to-top', 'Back to top button'],
+            ['cookie-consent', 'Cookie consent notice'],
+            ['social-proof', 'Social proof popup'],
+            ['live-chat', 'Live chat button'],
+            ['theme-toggle', 'Theme toggle'],
+          ].map(([section, label]) => (
+            <label key={section} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={visibility.disabledSections.includes(section)} onChange={(event) => setVisibility((current) => ({ ...current, disabledSections: event.target.checked ? [...current.disabledSections, section] : current.disabledSections.filter((item) => item !== section) }))} /> Hide {label}</label>
+          ))}
+        </div>
+        <p className="border-t border-black/10 pt-3 text-xs font-semibold text-gray-600">Website pages</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            ['home', 'Home page'],
+            ['all-products', 'All Products'],
+            ['product-detail', 'Product detail pages'],
+            ['new-releases', 'New Releases page'],
+            ['best-sellers', 'Best Sellers page'],
+            ['shirts', 'Shirts page'],
+            ['pants', 'Pants page'],
+            ['account', 'Account page'],
+            ['auth', 'Sign in / Sign up page'],
+            ['checkout', 'Checkout page'],
+            ['wishlist', 'Wishlist page'],
+            ['shipping', 'Shipping & Returns page'],
+            ['terms', 'Terms page'],
+            ['privacy', 'Privacy page'],
+            ['contact', 'Contact page'],
+          ].map(([page, label]) => (
+            <label key={page} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={visibility.disabledPages.includes(page)} onChange={(event) => setVisibility((current) => ({ ...current, disabledPages: event.target.checked ? [...current.disabledPages, page] : current.disabledPages.filter((item) => item !== page) }))} /> Hide {label}</label>
+          ))}
+        </div>
+      </fieldset>
       <button disabled={saving} className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white md:col-span-2">{saving ? 'Saving...' : 'Save Store Settings'}</button>
       {message && <p className="text-sm text-gray-600 md:col-span-2">{message}</p>}
     </form> : <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">

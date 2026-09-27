@@ -337,7 +337,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                       order.shippingAddress?.address,
                       order.shippingAddress?.city,
                       order.shippingAddress?.state,
-                      order.shippingAddress?.zipCode ?? order.shippingAddress?.zip_code,
+                      order.shippingAddress?.zipCode,
                       order.shippingAddress?.country,
                     ].filter(Boolean).join(', ') || 'Address unavailable'}</p>
                     <p>Payment: {order.paymentMethod || 'Unavailable'}</p>
@@ -349,10 +349,10 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between text-xs">
                           <span className="text-gray-700">
-                            {item.product?.title || item.title || 'Product'} × {item.quantity}{item.selectedSize ? ` (${item.selectedSize})` : ''}
+                            {item.product.title} × {item.quantity}{item.selectedSize ? ` (${item.selectedSize})` : ''}
                           </span>
                           <span className="font-semibold text-[#111]">
-                            {formatPKR((item.product?.price ?? item.price ?? 0) * item.quantity)}
+                            {formatPKR(item.product.price * item.quantity)}
                           </span>
                         </div>
                       ))}
