@@ -76,9 +76,17 @@ export default function AdminContentManager() {
       return;
     }
     setSaving(true);
-    const saved = mode === 'banners'
-      ? await BackendService.saveHomepageBanner(form, image, editingId)
-      : await BackendService.saveHomepageCategory(form, image, editingId);
+    let saved;
+    try {
+      saved = mode === 'banners'
+        ? await BackendService.saveHomepageBanner(form, image, editingId)
+        : await BackendService.saveHomepageCategory(form, image, editingId);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setMessage(`Save failed: ${detail}`);
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     if (!saved) { setMessage('Save failed. Check Supabase RLS and Cloudinary configuration.'); return; }
     setMessage('Saved successfully.');

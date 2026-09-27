@@ -444,7 +444,7 @@ class BackendService {
       return data;
     } catch (error) {
       console.error('Error saving homepage category:', error);
-      return null;
+      throw error;
     }
   }
 
