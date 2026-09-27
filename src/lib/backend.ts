@@ -438,7 +438,7 @@ class BackendService {
       const payload = {
         title: category.title,
         subtitle: category.subtitle,
-        page: category.page,
+        page: category.page || 'shirts',
         image_url: imageUrl,
         display_order: category.display_order,
         is_active: category.is_active,
