@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import BackendService from '../lib/backend';
 
-type ContentMode = 'banners' | 'categories' | 'settings';
+type ContentMode = 'banners' | 'categories' | 'catalog' | 'settings';
 
 const emptyBanner = { pre_title: '', headline: '', subheadline: '', cta: 'SHOP NOW', image_url: '', display_order: 0, is_active: true };
 const emptyCategory = { title: '', subtitle: '', image_url: '', page: 'shirts', display_order: 0, is_active: true };
@@ -27,9 +27,22 @@ export default function AdminContentManager() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '', brand_statement: '' });
+  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
+  const [newCategoryLabel, setNewCategoryLabel] = useState('');
+  const [newCategoryRequiresSize, setNewCategoryRequiresSize] = useState(false);
+  const [newPlacementLabel, setNewPlacementLabel] = useState('');
   const [visibility, setVisibility] = useState({ disabledCategories: [] as string[], disabledSections: [] as string[], disabledPages: [] as string[] });
 
   const load = async () => {
+    if (mode === 'catalog') {
+      const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
+      const options = storeSettings.catalog_options || { categories: [], placements: [] };
+      const missingCategories = [...new Set(products.map((product) => product.category))]
+        .filter((key) => !options.categories.some((category: any) => category.key === key))
+        .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((product) => product.category === key && product.variants.length > 0), active: true }));
+      setCatalogOptions({ ...options, categories: [...options.categories, ...missingCategories] });
+      return;
+    }
     if (mode === 'settings') {
       const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
       setProductCategories([...new Set(products.map((product) => product.category))].sort());
@@ -64,6 +77,11 @@ export default function AdminContentManager() {
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (mode === 'catalog') {
+      const saved = await BackendService.saveStoreSetting('catalog_options', catalogOptions);
+      setMessage(saved ? 'Catalog options saved.' : 'Could not save catalog options. Check admin access to store_settings.');
+      return;
+    }
     if (mode === 'settings') {
       const saved = await Promise.all([
         BackendService.saveStoreSetting('checkout', {
@@ -112,15 +130,62 @@ export default function AdminContentManager() {
     await load();
   };
 
+  const addCategory = () => {
+    const label = newCategoryLabel.trim();
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!key || catalogOptions.categories.some((category) => category.key === key)) return;
+    setCatalogOptions((current) => ({ ...current, categories: [...current.categories, { key, label, requiresSize: newCategoryRequiresSize, active: true }] }));
+    setNewCategoryLabel('');
+    setNewCategoryRequiresSize(false);
+  };
+
+  const addPlacement = () => {
+    const label = newPlacementLabel.trim();
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!key || catalogOptions.placements.some((placement) => placement.key === key)) return;
+    setCatalogOptions((current) => ({ ...current, placements: [...current.placements, { key, label, active: true }] }));
+    setNewPlacementLabel('');
+  };
+
   return <div className="space-y-5">
     <div className="flex flex-wrap gap-2">
       <button onClick={() => setMode('banners')} className={`rounded-full px-4 py-2 text-sm ${mode === 'banners' ? 'bg-black text-white' : 'bg-white'}`}>Hero Banners</button>
       <button onClick={() => setMode('categories')} className={`rounded-full px-4 py-2 text-sm ${mode === 'categories' ? 'bg-black text-white' : 'bg-white'}`}>Homepage Categories</button>
+      <button onClick={() => setMode('catalog')} className={`rounded-full px-4 py-2 text-sm ${mode === 'catalog' ? 'bg-black text-white' : 'bg-white'}`}>Catalog Options</button>
       <button onClick={() => setMode('settings')} className={`rounded-full px-4 py-2 text-sm ${mode === 'settings' ? 'bg-black text-white' : 'bg-white'}`}>Store Settings</button>
       <button onClick={startNew} className="rounded-full bg-white px-4 py-2 text-sm">+ Add</button>
     </div>
 
-    {mode === 'settings' ? <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">
+    {mode === 'catalog' ? <form onSubmit={save} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5">
+      <section className="space-y-3">
+        <h3 className="text-sm font-bold">Product categories</h3>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+          <input value={newCategoryLabel} onChange={(event) => setNewCategoryLabel(event.target.value)} placeholder="New category, e.g. Perfume" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newCategoryRequiresSize} onChange={(event) => setNewCategoryRequiresSize(event.target.checked)} /> Requires size</label>
+          <button type="button" onClick={addCategory} className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add category</button>
+        </div>
+        {catalogOptions.categories.map((category, index) => <div key={category.key} className="grid items-center gap-2 border-t border-black/5 pt-2 sm:grid-cols-[1fr_auto_auto_auto]">
+          <input value={category.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+          <code className="text-xs text-gray-500">{category.key}</code>
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.requiresSize} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, requiresSize: event.target.checked } : item) }))} /> Size required</label>
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.active} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, active: event.target.checked } : item) }))} /> Active</label>
+        </div>)}
+      </section>
+      <section className="space-y-3 border-t border-black/10 pt-4">
+        <h3 className="text-sm font-bold">Homepage placements</h3>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <input value={newPlacementLabel} onChange={(event) => setNewPlacementLabel(event.target.value)} placeholder="New placement, e.g. Summer Edit" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+          <button type="button" onClick={addPlacement} className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add placement</button>
+        </div>
+        {catalogOptions.placements.map((placement, index) => <div key={placement.key} className="grid items-center gap-2 border-t border-black/5 pt-2 sm:grid-cols-[1fr_auto_auto]">
+          <input value={placement.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, placements: current.placements.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+          <code className="text-xs text-gray-500">{placement.key}</code>
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={placement.active} onChange={(event) => setCatalogOptions((current) => ({ ...current, placements: current.placements.map((item, itemIndex) => itemIndex === index ? { ...item, active: event.target.checked } : item) }))} /> Active</label>
+        </div>)}
+      </section>
+      <button disabled={saving} className="w-fit rounded-full bg-black px-5 py-3 text-sm font-semibold text-white">Save Catalog Options</button>
+      {message && <p className="text-sm text-gray-600">{message}</p>}
+    </form> : mode === 'settings' ? <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">
       <input required type="number" min="0" value={settings.free_shipping_threshold} onChange={(e) => setSettings((current) => ({ ...current, free_shipping_threshold: e.target.value }))} placeholder="Free shipping threshold (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <input required type="number" min="0" value={settings.delivery_charge} onChange={(e) => setSettings((current) => ({ ...current, delivery_charge: e.target.value }))} placeholder="Delivery charge (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <input required type="number" min="0" max="100" step="0.1" value={settings.tax_rate} onChange={(e) => setSettings((current) => ({ ...current, tax_rate: e.target.value }))} placeholder="Tax rate (%)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />

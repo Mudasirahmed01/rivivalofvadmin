@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BackendService from '../lib/backend';
 import type { Product } from '../types';
 
@@ -9,6 +9,7 @@ interface AdminProductFormProps {
 }
 
 export default function AdminProductForm({ product, onSaved, onCancel }: AdminProductFormProps) {
+  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
   const [form, setForm] = useState({
     title: product?.title || '',
     slug: product?.slug || '',
@@ -16,8 +17,8 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     compareAtPrice: String(product?.compareAtPrice || ''),
     description: product?.description || '',
     fabricDetails: product?.fabricDetails || '',
-    category: product?.category || 'tops',
-    homepageSlot: product?.homepageSlot || 'none',
+    category: product?.category || '',
+    homepageSlot: product?.homepageSlot || '',
     isPublished: product?.isPublished ?? true,
     tags: product?.tags?.join(', ') || '',
   });
@@ -29,6 +30,23 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]).then(([settings, products]) => {
+      const options = settings.catalog_options || { categories: [], placements: [] };
+      const categories = Array.isArray(options.categories) ? options.categories : [];
+      const missingCategories = [...new Set(products.map((item) => item.category))]
+        .filter((key) => !categories.some((category: any) => category.key === key))
+        .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((item) => item.category === key && item.variants.length > 0), active: true }));
+      options.categories = [...categories, ...missingCategories];
+      if (product?.category && !options.categories.some((category: any) => category.key === product.category)) {
+        options.categories = [...options.categories, { key: product.category, label: product.category, requiresSize: product.variants.length > 0, active: true }];
+      }
+      setCatalogOptions(options);
+    });
+  }, [product?.category]);
+
+  const selectedCategory = catalogOptions.categories.find((category) => category.key === form.category);
+
   const update = (field: string, value: string | boolean) => setForm((current) => ({ ...current, [field]: value }));
 
   const submit = async (event: React.FormEvent) => {
@@ -36,7 +54,7 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     setSaving(true);
     setError('');
     const normalizedSlug = form.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const normalizedVariants = (form.category === 'tops' || form.category === 'bottoms' ? variants : []).map((variant) => ({
+    const normalizedVariants = (selectedCategory?.requiresSize ? variants : []).map((variant) => ({
       ...variant,
       size: variant.size.trim().toUpperCase(),
       sku: variant.sku.trim() || `${normalizedSlug}-${variant.size.trim().toLowerCase()}`,
@@ -65,8 +83,8 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       price: Number(form.price),
       compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : undefined,
       tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
-      category: form.category.trim().toLowerCase().replace(/\s+/g, '-'),
-      homepageSlot: form.homepageSlot as Product['homepageSlot'],
+      category: form.category,
+      homepageSlot: form.homepageSlot || 'none',
     };
     const saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id);
     setSaving(false);
@@ -85,14 +103,17 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       <input required type="number" min="0" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price in PKR" className="rounded-xl bg-white p-3 text-sm" />
       <input type="number" min="0" value={form.compareAtPrice} onChange={(e) => update('compareAtPrice', e.target.value)} placeholder="Sale compare price (optional)" className="rounded-xl bg-white p-3 text-sm" />
       <input value={form.fabricDetails} onChange={(e) => update('fabricDetails', e.target.value)} placeholder="Fabric details" className="rounded-xl bg-white p-3 text-sm" />
-      <input required value={form.category} onChange={(e) => update('category', e.target.value)} placeholder="Category, e.g. tops, bottoms, perfume" className="rounded-xl bg-white p-3 text-sm" />
+      <select required value={form.category} onChange={(e) => update('category', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
+        <option value="">Select category</option>
+        {catalogOptions.categories.filter((category) => category.active).map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}
+      </select>
       <select value={form.homepageSlot} onChange={(e) => update('homepageSlot', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
-        <option value="none">No homepage slot</option><option value="new_release">New release</option><option value="best_seller">Best seller</option><option value="hero">Hero</option>
+        {catalogOptions.placements.filter((placement) => placement.active).map((placement) => <option key={placement.key} value={placement.key}>{placement.label}</option>)}
       </select>
       <input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="Tags: sale, new-arrival, bestseller" className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
       <textarea required value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description" className="min-h-24 rounded-xl bg-white p-3 text-sm md:col-span-2" />
       <input type="file" accept="image/*" multiple onChange={(e) => setImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
-      {(form.category === 'tops' || form.category === 'bottoms') && <div className="grid gap-2 md:col-span-2">
+      {selectedCategory?.requiresSize && <div className="grid gap-2 md:col-span-2">
         <p className="text-sm font-semibold">Sizes, stock and SKU</p>
         {variants.map((variant, index) => <div key={variant.size} className="grid grid-cols-3 gap-2"><input value={variant.size} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, size: e.target.value } : item))} placeholder="Size" className="rounded-xl bg-white p-3 text-sm" /><input type="number" min="0" value={variant.stockCount} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, stockCount: Number(e.target.value) } : item))} placeholder="Stock" className="rounded-xl bg-white p-3 text-sm" /><input value={variant.sku} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, sku: e.target.value } : item))} placeholder="SKU" className="rounded-xl bg-white p-3 text-sm" /></div>)}
       </div>}

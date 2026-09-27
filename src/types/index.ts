@@ -26,7 +26,7 @@ export interface Product {
   fabricDetails: string;
   images: ProductImage[];
   category: string;
-  homepageSlot: "hero" | "new_release" | "bento_1" | "bento_2" | "bento_3" | "best_seller" | "none";
+  homepageSlot: string;
   variants: ProductVariant[];
   colors?: ProductColor[];
   tags?: string[];
