@@ -29,6 +29,24 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
 
+  const loadData = async () => {
+    const [allProducts, allOrders, allUsers] = await Promise.all([
+      BackendService.getProducts(),
+      BackendService.getAllOrders(),
+      BackendService.getUsers(),
+    ]);
+
+    setProducts(allProducts);
+    setOrders(allOrders);
+    setUsers(allUsers);
+    setStats({
+      totalProducts: allProducts.length,
+      totalOrders: allOrders.length,
+      totalRevenue: allOrders.reduce((sum, order) => sum + order.total, 0),
+      totalCustomers: allUsers.length,
+    });
+  };
+
   useEffect(() => {
     BackendService.getCurrentUser().then((user) => {
       const role = user?.app_metadata?.role || user?.user_metadata?.role;
@@ -51,24 +69,6 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       </div>
     );
   }
-
-  const loadData = async () => {
-    const [allProducts, allOrders, allUsers] = await Promise.all([
-      BackendService.getProducts(),
-      BackendService.getAllOrders(),
-      BackendService.getUsers(),
-    ]);
-
-    setProducts(allProducts);
-    setOrders(allOrders);
-    setUsers(allUsers);
-    setStats({
-      totalProducts: allProducts.length,
-      totalOrders: allOrders.length,
-      totalRevenue: allOrders.reduce((sum, order) => sum + order.total, 0),
-      totalCustomers: allUsers.length,
-    });
-  };
 
   const handleDeleteProduct = async (id: string) => {
     if (confirm('Are you sure you want to delete this product?')) {

@@ -78,13 +78,6 @@ export const uploadToCloudinary = async (
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
   formData.append('folder', folder);
 
-  // Auto transformations for optimization
-  formData.append('transformation', JSON.stringify([
-    { quality: 'auto' },
-    { fetch_format: 'auto' },
-    { width: 1200, crop: 'limit' }
-  ]));
-
   try {
     console.log(`📤 Uploading to Cloudinary folder: ${folder}`);
 

@@ -247,6 +247,9 @@ class BackendService {
     id?: string
   ): Promise<Product | null> {
     try {
+      const uploadedImages = images.length
+        ? await uploadMultipleToCloudinary(images, 'products')
+        : [];
       const productPayload = toDatabaseProduct(product);
       const productQuery = id
         ? supabase.from('products').update(productPayload).eq('id', id).select().single()
@@ -255,8 +258,7 @@ class BackendService {
       if (productError || !productData) throw productError || new Error('Product was not saved');
 
       const productId = productData.id;
-      if (images.length > 0) {
-        const uploadedImages = await uploadMultipleToCloudinary(images, 'products');
+      if (uploadedImages.length > 0) {
         if (id) {
           const { data: oldImages } = await supabase
             .from('product_images')
