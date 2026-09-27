@@ -14,7 +14,7 @@ export default function AdminContentManager() {
   const [image, setImage] = useState<File>();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '' });
+  const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '', brand_statement: '' });
 
   const load = async () => {
     if (mode === 'settings') {
@@ -24,6 +24,7 @@ export default function AdminContentManager() {
         delivery_charge: String(storeSettings.checkout?.delivery_charge || ''),
         tax_rate: String(storeSettings.checkout?.tax_rate || ''),
         marquee_items: (storeSettings.marquee?.items || []).join('\n'),
+        brand_statement: String(storeSettings.brand_statement?.text || 'We do not design apparel for a single season. Revival of V builds architectural silhouettes designed to endure time, movement, and perception.'),
       });
       return;
     }
@@ -45,6 +46,7 @@ export default function AdminContentManager() {
           tax_rate: Number(settings.tax_rate),
         }),
         BackendService.saveStoreSetting('marquee', { items: settings.marquee_items.split('\n').map((item) => item.trim()).filter(Boolean) }),
+        BackendService.saveStoreSetting('brand_statement', { text: settings.brand_statement.trim() }),
       ]);
       setMessage(saved.every(Boolean) ? 'Store settings saved.' : 'Settings save failed.');
       return;
@@ -84,6 +86,7 @@ export default function AdminContentManager() {
       <input required type="number" min="0" value={settings.delivery_charge} onChange={(e) => setSettings((current) => ({ ...current, delivery_charge: e.target.value }))} placeholder="Delivery charge (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <input required type="number" min="0" max="100" step="0.1" value={settings.tax_rate} onChange={(e) => setSettings((current) => ({ ...current, tax_rate: e.target.value }))} placeholder="Tax rate (%)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <textarea required value={settings.marquee_items} onChange={(e) => setSettings((current) => ({ ...current, marquee_items: e.target.value }))} placeholder="Marquee item per line" className="min-h-28 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+      <textarea required value={settings.brand_statement} onChange={(e) => setSettings((current) => ({ ...current, brand_statement: e.target.value }))} placeholder="Homepage brand statement" className="min-h-36 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       <button disabled={saving} className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white md:col-span-2">{saving ? 'Saving...' : 'Save Store Settings'}</button>
       {message && <p className="text-sm text-gray-600 md:col-span-2">{message}</p>}
     </form> : <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">
