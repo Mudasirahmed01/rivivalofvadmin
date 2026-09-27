@@ -82,9 +82,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     await loadData();
   };
 
-  const formatOrderNumber = (order: Order) => order.orderNumber
-    ? `RV-${String(order.orderNumber).padStart(6, '0')}`
-    : `RV-${order.id.slice(0, 8).toUpperCase()}`;
+  const formatOrderNumber = (order: Order) => order.id;
 
   const formatOrderDate = (value: string | undefined) => {
     if (!value) return 'Date unavailable';
