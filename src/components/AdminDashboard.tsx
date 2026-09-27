@@ -82,6 +82,18 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     await loadData();
   };
 
+  const formatOrderNumber = (order: Order) => order.orderNumber
+    ? `RV-${String(order.orderNumber).padStart(6, '0')}`
+    : `RV-${order.id.slice(0, 8).toUpperCase()}`;
+
+  const formatOrderDate = (value: string | undefined) => {
+    if (!value) return 'Date unavailable';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? 'Date unavailable'
+      : date.toLocaleString('en-PK', { dateStyle: 'medium', timeStyle: 'short' });
+  };
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] pt-20 pb-16 px-4 md:px-6">
       <div className="max-w-7xl mx-auto">
@@ -174,8 +186,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                 {orders.slice(0, 5).map((order) => (
                   <div key={order.id} className="flex items-center justify-between p-4 bg-[#F5F5F7] rounded-xl">
                     <div>
-                      <p className="text-sm font-semibold text-[#111]">{order.id}</p>
-                      <p className="text-xs text-gray-600">{order.userEmail}</p>
+                      <p className="text-sm font-semibold text-[#111]">{formatOrderNumber(order)}</p>
+                      <p className="text-xs text-gray-600">{order.userEmail || 'Email unavailable for this order'}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-[#111]">{formatPKR(order.total)}</p>
@@ -299,15 +311,9 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                 <div key={order.id} className="p-4 bg-[#F5F5F7] rounded-xl">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-sm font-bold text-[#111]">{order.id}</p>
-                      <p className="text-xs text-gray-600">{order.userEmail}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(order.createdAt).toLocaleDateString('en-PK', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </p>
+                      <p className="text-sm font-bold text-[#111]">{formatOrderNumber(order)}</p>
+                      <p className="text-xs text-gray-600">{order.userEmail || 'Email unavailable for this order'}</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatOrderDate(order.createdAt)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-[#111]">{formatPKR(order.total)}</p>
@@ -325,16 +331,30 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                     </div>
                   </div>
 
+                  <div className="border-t border-black/10 pt-3 mt-3 grid gap-1 text-xs text-gray-700">
+                    <p className="font-bold text-gray-600">Delivery details</p>
+                    <p>{[order.shippingAddress?.firstName, order.shippingAddress?.lastName].filter(Boolean).join(' ') || 'Name unavailable'}</p>
+                    <p>{order.shippingAddress?.phone || 'Phone unavailable'}</p>
+                    <p>{[
+                      order.shippingAddress?.address,
+                      order.shippingAddress?.city,
+                      order.shippingAddress?.state,
+                      order.shippingAddress?.zipCode ?? order.shippingAddress?.zip_code,
+                      order.shippingAddress?.country,
+                    ].filter(Boolean).join(', ') || 'Address unavailable'}</p>
+                    <p>Payment: {order.paymentMethod || 'Unavailable'}</p>
+                  </div>
+
                   <div className="border-t border-black/10 pt-3">
                     <p className="text-xs font-bold text-gray-600 mb-2">Items:</p>
                     <div className="space-y-2">
                       {order.items.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between text-xs">
                           <span className="text-gray-700">
-                            {item.product.title} × {item.quantity} ({item.selectedSize})
+                            {item.product?.title || item.title || 'Product'} × {item.quantity}{item.selectedSize ? ` (${item.selectedSize})` : ''}
                           </span>
                           <span className="font-semibold text-[#111]">
-                            {formatPKR(item.product.price * item.quantity)}
+                            {formatPKR((item.product?.price ?? item.price ?? 0) * item.quantity)}
                           </span>
                         </div>
                       ))}

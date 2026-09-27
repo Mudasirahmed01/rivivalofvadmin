@@ -50,6 +50,17 @@ const normalizeProduct = (row: any): Product => ({
   })),
 });
 
+const normalizeOrder = (row: any) => ({
+  ...row,
+  orderNumber: row.order_number ?? row.orderNumber ?? null,
+  userEmail: row.customer_email ?? row.user_email ?? row.userEmail ?? '',
+  createdAt: row.created_at ?? row.createdAt ?? null,
+  shippingAddress: row.shipping_address ?? row.shippingAddress ?? {},
+  paymentMethod: row.payment_method ?? row.paymentMethod ?? '',
+  couponCode: row.coupon_code ?? row.couponCode,
+  items: Array.isArray(row.items) ? row.items : [],
+});
+
 const toDatabaseProduct = (product: Partial<Product>) => {
   const databaseProduct: Record<string, unknown> = { ...product };
   const fieldMap: Record<string, string> = {
@@ -661,7 +672,7 @@ class BackendService {
       return [];
     }
 
-    return data || [];
+    return (data || []).map(normalizeOrder);
   }
 
   /**

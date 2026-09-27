@@ -72,6 +72,7 @@ export interface User {
 
 export interface Order {
   id: string;
+  orderNumber?: number;
   userId: string;
   userEmail: string;
   items: CartItem[];
