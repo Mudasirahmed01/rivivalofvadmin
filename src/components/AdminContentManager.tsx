@@ -9,6 +9,7 @@ const emptyCategory = { title: '', subtitle: '', image_url: '', page: 'shirts', 
 export default function AdminContentManager() {
   const [mode, setMode] = useState<ContentMode>('banners');
   const [items, setItems] = useState<any[]>([]);
+  const [productCategories, setProductCategories] = useState<string[]>([]);
   const [form, setForm] = useState<any>(emptyBanner);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [image, setImage] = useState<File>();
@@ -28,7 +29,13 @@ export default function AdminContentManager() {
       });
       return;
     }
-    setItems(mode === 'banners' ? await BackendService.getHomepageBanners() : await BackendService.getHomepageCategories());
+    if (mode === 'banners') {
+      setItems(await BackendService.getHomepageBanners());
+    } else {
+      const [categories, products] = await Promise.all([BackendService.getHomepageCategories(), BackendService.getProducts()]);
+      setItems(categories);
+      setProductCategories([...new Set(products.map((product) => product.category).filter((category) => !['tops', 'bottoms'].includes(category)))].sort());
+    }
   };
   useEffect(() => { load(); }, [mode]);
 
@@ -97,7 +104,7 @@ export default function AdminContentManager() {
         <textarea required value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </> : <>
         <input required value={form.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Category title" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-        <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option></select>
+        <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.map((category) => <option key={category} value={`category:${category}`}>{category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</optgroup>}</select>
         <input required value={form.subtitle || ''} onChange={(e) => update('subtitle', e.target.value)} placeholder="Category subtitle" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </>}
       <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
