@@ -160,7 +160,7 @@ export default function AdminContentManager() {
       <section className="space-y-3">
         <h3 className="text-sm font-bold">Product categories</h3>
         <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-          <input value={newCategoryLabel} onChange={(event) => setNewCategoryLabel(event.target.value)} placeholder="New category, e.g. Perfume" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+          <input value={newCategoryLabel} onChange={(event) => setNewCategoryLabel(event.target.value)} placeholder="New category name" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newCategoryRequiresSize} onChange={(event) => setNewCategoryRequiresSize(event.target.checked)} /> Requires size</label>
           <button type="button" onClick={addCategory} className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add category</button>
         </div>
@@ -259,7 +259,7 @@ export default function AdminContentManager() {
         <textarea required value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </> : <>
         <input required value={form.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Category title" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-        <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.some((category) => category.startsWith('perfume')) && <option value="category:perfumes">All Perfumes</option>}{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.map((category) => <option key={category} value={`category:${category}`}>{category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</optgroup>}</select>
+        <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.map((category) => <option key={category} value={`category:${category}`}>{category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</optgroup>}</select>
         <input required value={form.subtitle || ''} onChange={(e) => update('subtitle', e.target.value)} placeholder="Category subtitle" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </>}
       <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
