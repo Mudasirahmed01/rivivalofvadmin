@@ -53,7 +53,7 @@ const normalizeProduct = (row: any): Product => ({
 const normalizeOrder = (row: any) => ({
   ...row,
   orderNumber: row.order_number ?? row.orderNumber ?? null,
-  userEmail: row.customer_email ?? row.user_email ?? row.userEmail ?? '',
+  userEmail: row.customer_email ?? row.shipping_address?.email ?? row.user_email ?? row.userEmail ?? '',
   createdAt: row.created_at ?? row.createdAt ?? null,
   shippingAddress: row.shipping_address ?? row.shippingAddress ?? {},
   paymentMethod: row.payment_method ?? row.paymentMethod ?? '',
