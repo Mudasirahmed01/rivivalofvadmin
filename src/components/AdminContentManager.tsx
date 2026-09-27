@@ -6,6 +6,17 @@ type ContentMode = 'banners' | 'categories' | 'settings';
 const emptyBanner = { pre_title: '', headline: '', subheadline: '', cta: 'SHOP NOW', image_url: '', display_order: 0, is_active: true };
 const emptyCategory = { title: '', subtitle: '', image_url: '', page: 'shirts', display_order: 0, is_active: true };
 
+const formatSaveError = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const databaseError = error as { message?: string; details?: string; hint?: string; code?: string };
+    return [databaseError.message, databaseError.details, databaseError.hint, databaseError.code && `Code: ${databaseError.code}`]
+      .filter(Boolean)
+      .join(' ');
+  }
+  return String(error);
+};
+
 export default function AdminContentManager() {
   const [mode, setMode] = useState<ContentMode>('banners');
   const [items, setItems] = useState<any[]>([]);
@@ -82,7 +93,7 @@ export default function AdminContentManager() {
         ? await BackendService.saveHomepageBanner(form, image, editingId)
         : await BackendService.saveHomepageCategory(form, image, editingId);
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+      const detail = formatSaveError(error);
       setMessage(`Save failed: ${detail}`);
       setSaving(false);
       return;
