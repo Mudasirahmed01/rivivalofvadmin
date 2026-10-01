@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import BackendService from '../lib/backend';
+import { uploadToCloudinary } from '../lib/cloudinary';
 
 type ContentMode = 'banners' | 'categories' | 'catalog' | 'settings';
 type MenuEntry = { id: string; label: string; destination: string; type: 'link' | 'dropdown'; active: boolean; children: MenuEntry[] };
@@ -51,6 +52,8 @@ export default function AdminContentManager() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '', brand_statement: '', login_title: 'Welcome Back', login_tagline: 'Sign in to your account', signup_title: 'Create Account', signup_tagline: 'Join REVIVAL OF V' });
+  const [mobileHeaderLogoUrl, setMobileHeaderLogoUrl] = useState('');
+  const [mobileHeaderLogoFile, setMobileHeaderLogoFile] = useState<File>();
   const [footerLinks, setFooterLinks] = useState(defaultFooterLinks);
   const [footerNewsletterText, setFooterNewsletterText] = useState('Get product news and special offers by email.');
   const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean; showOnPerfumesPage?: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
@@ -99,6 +102,8 @@ export default function AdminContentManager() {
       });
       setFooterLinks(storeSettings.footer_links || defaultFooterLinks);
       setFooterNewsletterText(String(storeSettings.footer_newsletter?.text || 'Get product news and special offers by email.'));
+      const savedMobileHeaderLogo = storeSettings.mobile_header_logo;
+      setMobileHeaderLogoUrl(typeof savedMobileHeaderLogo === 'string' ? savedMobileHeaderLogo : savedMobileHeaderLogo?.url || '');
       setVisibility({
         disabledCategories: Array.isArray(storefrontVisibility.disabled_categories) ? storefrontVisibility.disabled_categories : [],
         disabledSections: Array.isArray(storefrontVisibility.disabled_sections) ? storefrontVisibility.disabled_sections : [],
@@ -136,6 +141,15 @@ export default function AdminContentManager() {
       return;
     }
     if (mode === 'settings') {
+      let logoUrl = mobileHeaderLogoUrl;
+      if (mobileHeaderLogoFile) {
+        try {
+          logoUrl = (await uploadToCloudinary(mobileHeaderLogoFile, 'branding')).secure_url;
+        } catch (error) {
+          setMessage(`Logo upload failed: ${formatSaveError(error)}`);
+          return;
+        }
+      }
       const saved = await Promise.all([
         BackendService.saveStoreSetting('checkout', {
           free_shipping_threshold: Number(settings.free_shipping_threshold),
@@ -152,6 +166,7 @@ export default function AdminContentManager() {
         }),
         BackendService.saveStoreSetting('footer_links', footerLinks),
         BackendService.saveStoreSetting('footer_newsletter', { text: footerNewsletterText.trim() }),
+        BackendService.saveStoreSetting('mobile_header_logo', { url: logoUrl }),
         BackendService.saveStoreSetting('storefront_visibility', {
           disabled_categories: visibility.disabledCategories,
           disabled_sections: visibility.disabledSections,
@@ -307,6 +322,14 @@ export default function AdminContentManager() {
       <input type="number" min="0" max="100" step="0.1" value={settings.tax_rate} onChange={(e) => setSettings((current) => ({ ...current, tax_rate: e.target.value }))} placeholder="Tax rate (%)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <textarea value={settings.marquee_items} onChange={(e) => setSettings((current) => ({ ...current, marquee_items: e.target.value }))} placeholder="Marquee item per line (optional)" className="min-h-28 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       <textarea value={settings.brand_statement} onChange={(e) => setSettings((current) => ({ ...current, brand_statement: e.target.value }))} placeholder="Homepage brand statement (optional)" className="min-h-36 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+      <section className="grid gap-3 border-t border-black/10 pt-4 md:col-span-2">
+        <h3 className="text-sm font-bold">Mobile header logo</h3>
+        <p className="text-xs text-gray-500">Shown in the mobile storefront header. No circle or border is added.</p>
+        <input type="file" accept="image/*" onChange={(event) => setMobileHeaderLogoFile(event.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+        {mobileHeaderLogoFile && <p className="text-xs text-gray-600">Selected: {mobileHeaderLogoFile.name}</p>}
+        {mobileHeaderLogoUrl && !mobileHeaderLogoFile && <img src={mobileHeaderLogoUrl} alt="Current mobile header logo" className="h-12 w-12 object-contain" />}
+        {(mobileHeaderLogoUrl || mobileHeaderLogoFile) && <button type="button" onClick={() => { setMobileHeaderLogoUrl(''); setMobileHeaderLogoFile(undefined); }} className="w-fit text-xs text-red-600">Remove logo</button>}
+      </section>
       <div className="grid gap-3 border-t border-black/10 pt-4 md:col-span-2 md:grid-cols-2">
         <h3 className="text-sm font-bold md:col-span-2">Sign in and sign up copy</h3>
         <input required value={settings.login_title} onChange={(event) => setSettings((current) => ({ ...current, login_title: event.target.value }))} placeholder="Sign in heading" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
