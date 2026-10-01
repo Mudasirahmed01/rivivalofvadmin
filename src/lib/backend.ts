@@ -396,7 +396,14 @@ class BackendService {
       const imageUrl = image
         ? (await uploadToCloudinary(image, 'homepage/banners')).secure_url
         : banner.image_url;
-      const payload = { ...banner, image_url: imageUrl };
+      const payload = {
+        ...banner,
+        pre_title: banner.pre_title || '',
+        headline: banner.headline || '',
+        subheadline: banner.subheadline || '',
+        cta: banner.cta || '',
+        image_url: imageUrl,
+      };
       const query = id
         ? supabase.from('homepage_banners').update(payload).eq('id', id)
         : supabase.from('homepage_banners').insert(payload);

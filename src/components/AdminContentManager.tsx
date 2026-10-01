@@ -388,10 +388,10 @@ export default function AdminContentManager() {
       {message && <p className="text-sm text-gray-600 md:col-span-2">{message}</p>}
     </form> : <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">
       {mode === 'banners' ? <>
-        <input required value={form.pre_title || ''} onChange={(e) => update('pre_title', e.target.value)} placeholder="Pre-title" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-        <input required value={form.cta || ''} onChange={(e) => update('cta', e.target.value)} placeholder="Button text" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-        <input required value={form.headline || ''} onChange={(e) => update('headline', e.target.value)} placeholder="Headline" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
-        <textarea required value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+        <input value={form.pre_title || ''} onChange={(e) => update('pre_title', e.target.value)} placeholder="Pre-title (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+        <input value={form.cta || ''} onChange={(e) => update('cta', e.target.value)} placeholder="Button text (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+        <input value={form.headline || ''} onChange={(e) => update('headline', e.target.value)} placeholder="Headline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+        <textarea value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </> : <>
         <input required value={form.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Category title" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
         <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.map((category) => <option key={category} value={`category:${category}`}>{category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</optgroup>}</select>
