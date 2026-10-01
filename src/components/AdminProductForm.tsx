@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import BackendService from '../lib/backend';
+import ProductDescriptionEditor from './ProductDescriptionEditor';
 import type { Product } from '../types';
+
+const formatSaveError = (error: unknown) => {
+  if (error && typeof error === 'object') {
+    const databaseError = error as { message?: string; details?: string; hint?: string; code?: string };
+    return [databaseError.message, databaseError.details, databaseError.hint, databaseError.code && `Code: ${databaseError.code}`]
+      .filter(Boolean)
+      .join(' ');
+  }
+  return error instanceof Error ? error.message : String(error);
+};
 
 interface AdminProductFormProps {
   product?: Product;
@@ -96,7 +107,14 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       category: productCategory,
       homepageSlot: form.homepageSlot || 'none',
     };
-    const saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id, mobileImages);
+    let saved;
+    try {
+      saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id, mobileImages);
+    } catch (saveError) {
+      setSaving(false);
+      setError(formatSaveError(saveError) || 'Product save failed.');
+      return;
+    }
     setSaving(false);
     if (!saved) {
       setError('Could not save product. SKU must be unique; also verify Supabase product, image and variant policies.');
@@ -121,7 +139,7 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
         {catalogOptions.placements.filter((placement) => placement.active).map((placement) => <option key={placement.key} value={placement.key}>{placement.label}</option>)}
       </select>
       <input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="Tags: sale, new-arrival, bestseller" className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
-      <textarea value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description (optional)" className="min-h-24 rounded-xl bg-white p-3 text-sm md:col-span-2" />
+      <ProductDescriptionEditor value={form.description} onChange={(value) => update('description', value)} />
       <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Desktop / laptop product images (select multiple; you can add more than once)
         <input type="file" accept="image/*" multiple onChange={(event) => {
           const selectedFiles = Array.from(event.currentTarget.files || []);
