@@ -337,6 +337,7 @@ class BackendService {
                 product_id: productId,
                 url: image.secure_url,
                 cloudinary_url: image.secure_url,
+                cloudinary_public_id: image.public_id,
                 mobile_url: image.secure_url,
                 alt_text: `${product.title || productData.title} - Image ${index + 1}`,
                 is_primary: false,
@@ -350,6 +351,7 @@ class BackendService {
             product_id: productId,
             url: image.secure_url,
             cloudinary_url: image.secure_url,
+            cloudinary_public_id: image.public_id,
             mobile_url: image.secure_url,
             alt_text: `${product.title || productData.title} - Image ${index + 1}`,
             is_primary: index === 0,
@@ -374,8 +376,8 @@ class BackendService {
     } catch (error) {
       console.error('Error saving product:', error);
       if (createdProductId) await supabase.from('products').delete().eq('id', createdProductId);
-      await Promise.all(uploadedImages.map((image) => this.deleteCloudinaryAsset(image.public_id)));
-      return null;
+      await Promise.all([...uploadedImages, ...uploadedMobileImages].map((image) => this.deleteCloudinaryAsset(image.public_id)));
+      throw error;
     }
   }
 
