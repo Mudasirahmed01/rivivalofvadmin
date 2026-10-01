@@ -443,8 +443,8 @@ class BackendService {
         ? (await uploadToCloudinary(image, 'homepage/categories')).secure_url
         : category.image_url;
       const payload = {
-        title: category.title,
-        subtitle: category.subtitle,
+        title: category.title || 'Untitled category',
+        subtitle: category.subtitle || '',
         page: category.page || 'shirts',
         image_url: imageUrl,
         display_order: category.display_order,

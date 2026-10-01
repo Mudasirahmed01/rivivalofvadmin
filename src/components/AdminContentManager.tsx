@@ -298,11 +298,11 @@ export default function AdminContentManager() {
       <button disabled={saving} className="w-fit rounded-full bg-black px-5 py-3 text-sm font-semibold text-white">Save Catalog Options</button>
       {message && <p className="text-sm text-gray-600">{message}</p>}
     </form> : mode === 'settings' ? <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">
-      <input required type="number" min="0" value={settings.free_shipping_threshold} onChange={(e) => setSettings((current) => ({ ...current, free_shipping_threshold: e.target.value }))} placeholder="Free shipping threshold (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-      <input required type="number" min="0" value={settings.delivery_charge} onChange={(e) => setSettings((current) => ({ ...current, delivery_charge: e.target.value }))} placeholder="Delivery charge (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-      <input required type="number" min="0" max="100" step="0.1" value={settings.tax_rate} onChange={(e) => setSettings((current) => ({ ...current, tax_rate: e.target.value }))} placeholder="Tax rate (%)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-      <textarea required value={settings.marquee_items} onChange={(e) => setSettings((current) => ({ ...current, marquee_items: e.target.value }))} placeholder="Marquee item per line" className="min-h-28 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
-      <textarea required value={settings.brand_statement} onChange={(e) => setSettings((current) => ({ ...current, brand_statement: e.target.value }))} placeholder="Homepage brand statement" className="min-h-36 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+      <input type="number" min="0" value={settings.free_shipping_threshold} onChange={(e) => setSettings((current) => ({ ...current, free_shipping_threshold: e.target.value }))} placeholder="Free shipping threshold (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+      <input type="number" min="0" value={settings.delivery_charge} onChange={(e) => setSettings((current) => ({ ...current, delivery_charge: e.target.value }))} placeholder="Delivery charge (PKR)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+      <input type="number" min="0" max="100" step="0.1" value={settings.tax_rate} onChange={(e) => setSettings((current) => ({ ...current, tax_rate: e.target.value }))} placeholder="Tax rate (%)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+      <textarea value={settings.marquee_items} onChange={(e) => setSettings((current) => ({ ...current, marquee_items: e.target.value }))} placeholder="Marquee item per line (optional)" className="min-h-28 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+      <textarea value={settings.brand_statement} onChange={(e) => setSettings((current) => ({ ...current, brand_statement: e.target.value }))} placeholder="Homepage brand statement (optional)" className="min-h-36 rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       <div className="grid gap-3 border-t border-black/10 pt-4 md:col-span-2 md:grid-cols-2">
         <h3 className="text-sm font-bold md:col-span-2">Sign in and sign up copy</h3>
         <input required value={settings.login_title} onChange={(event) => setSettings((current) => ({ ...current, login_title: event.target.value }))} placeholder="Sign in heading" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
@@ -393,9 +393,9 @@ export default function AdminContentManager() {
         <input value={form.headline || ''} onChange={(e) => update('headline', e.target.value)} placeholder="Headline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
         <textarea value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </> : <>
-        <input required value={form.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Category title" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+        <input value={form.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Category title (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
         <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.map((category) => <option key={category} value={`category:${category}`}>{category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</optgroup>}</select>
-        <input required value={form.subtitle || ''} onChange={(e) => update('subtitle', e.target.value)} placeholder="Category subtitle" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
+        <input value={form.subtitle || ''} onChange={(e) => update('subtitle', e.target.value)} placeholder="Category subtitle (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </>}
       <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       <input type="number" value={form.display_order || 0} onChange={(e) => update('display_order', Number(e.target.value))} placeholder="Display order" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />

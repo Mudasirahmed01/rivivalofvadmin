@@ -53,8 +53,13 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     event.preventDefault();
     setSaving(true);
     setError('');
-    const normalizedSlug = form.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const normalizedVariants = (selectedCategory?.requiresSize ? variants : []).map((variant) => ({
+    const productTitle = form.title.trim() || 'Untitled product';
+    const normalizedSlug = form.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      || productTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      || `product-${crypto.randomUUID().slice(0, 8)}`;
+    const productCategory = form.category || catalogOptions.categories.find((category) => category.active)?.key || 'tops';
+    const productCategoryOption = catalogOptions.categories.find((category) => category.key === productCategory);
+    const normalizedVariants = (productCategoryOption?.requiresSize ? variants.filter((variant) => variant.size.trim()) : []).map((variant) => ({
       ...variant,
       size: variant.size.trim().toUpperCase(),
       sku: variant.sku.trim() || `${normalizedSlug}-${variant.size.trim().toLowerCase()}`,
@@ -80,10 +85,14 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     }
     const payload = {
       ...form,
-      price: Number(form.price),
+      title: productTitle,
+      slug: normalizedSlug,
+      price: Number(form.price) || 0,
+      description: form.description.trim(),
+      fabricDetails: form.fabricDetails.trim(),
       compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : undefined,
       tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
-      category: form.category,
+      category: productCategory,
       homepageSlot: form.homepageSlot || 'none',
     };
     const saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id);
@@ -98,20 +107,20 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
   return (
     <form onSubmit={submit} className="mb-6 grid gap-4 rounded-2xl border border-black/10 bg-[#F5F5F7] p-5 md:grid-cols-2">
       <h3 className="text-lg font-bold md:col-span-2">{product ? 'Edit Product' : 'Add Product'}</h3>
-      <input required value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Product title" className="rounded-xl bg-white p-3 text-sm" />
-      <input required value={form.slug} onChange={(e) => update('slug', e.target.value)} placeholder="product-slug" className="rounded-xl bg-white p-3 text-sm" />
-      <input required type="number" min="0" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price in PKR" className="rounded-xl bg-white p-3 text-sm" />
+      <input value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Product title (optional)" className="rounded-xl bg-white p-3 text-sm" />
+      <input value={form.slug} onChange={(e) => update('slug', e.target.value)} placeholder="Slug (generated if blank)" className="rounded-xl bg-white p-3 text-sm" />
+      <input type="number" min="0" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price (defaults to 0)" className="rounded-xl bg-white p-3 text-sm" />
       <input type="number" min="0" value={form.compareAtPrice} onChange={(e) => update('compareAtPrice', e.target.value)} placeholder="Sale compare price (optional)" className="rounded-xl bg-white p-3 text-sm" />
       <input value={form.fabricDetails} onChange={(e) => update('fabricDetails', e.target.value)} placeholder="Fabric details" className="rounded-xl bg-white p-3 text-sm" />
-      <select required value={form.category} onChange={(e) => update('category', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
-        <option value="">Select category</option>
+      <select value={form.category} onChange={(e) => update('category', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
+        <option value="">Default category</option>
         {catalogOptions.categories.filter((category) => category.active).map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}
       </select>
       <select value={form.homepageSlot} onChange={(e) => update('homepageSlot', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
         {catalogOptions.placements.filter((placement) => placement.active).map((placement) => <option key={placement.key} value={placement.key}>{placement.label}</option>)}
       </select>
       <input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="Tags: sale, new-arrival, bestseller" className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
-      <textarea required value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description" className="min-h-24 rounded-xl bg-white p-3 text-sm md:col-span-2" />
+      <textarea value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description (optional)" className="min-h-24 rounded-xl bg-white p-3 text-sm md:col-span-2" />
       <input type="file" accept="image/*" multiple onChange={(e) => setImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
       {selectedCategory?.requiresSize && <div className="grid gap-2 md:col-span-2">
         <p className="text-sm font-semibold">Sizes, stock and SKU</p>
