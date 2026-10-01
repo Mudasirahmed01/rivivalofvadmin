@@ -122,8 +122,32 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       </select>
       <input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="Tags: sale, new-arrival, bestseller" className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
       <textarea value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description (optional)" className="min-h-24 rounded-xl bg-white p-3 text-sm md:col-span-2" />
-      <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Desktop / laptop product images<input type="file" accept="image/*" multiple onChange={(e) => setImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm font-normal" /></label>
-      <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Mobile product images (match desktop image order; optional)<input type="file" accept="image/*" multiple onChange={(e) => setMobileImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm font-normal" /></label>
+      <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Desktop / laptop product images (select multiple; you can add more than once)
+        <input type="file" accept="image/*" multiple onChange={(event) => {
+          const selectedFiles = Array.from(event.currentTarget.files || []);
+          if (selectedFiles.length) setImages((current) => [...current, ...selectedFiles]);
+          event.currentTarget.value = '';
+        }} className="rounded-xl bg-white p-3 text-sm font-normal" />
+        {images.length > 0 && <div className="grid gap-2 sm:grid-cols-2">
+          {images.map((file, index) => <div key={`${file.name}-${file.lastModified}-${index}`} className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+            <span className="truncate text-xs font-normal text-gray-700">{index + 1}. {file.name}</span>
+            <button type="button" onClick={() => setImages((current) => current.filter((_, fileIndex) => fileIndex !== index))} className="shrink-0 text-xs text-red-600">Remove</button>
+          </div>)}
+        </div>}
+      </label>
+      <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Mobile product images (match desktop image order; optional, multiple allowed)
+        <input type="file" accept="image/*" multiple onChange={(event) => {
+          const selectedFiles = Array.from(event.currentTarget.files || []);
+          if (selectedFiles.length) setMobileImages((current) => [...current, ...selectedFiles]);
+          event.currentTarget.value = '';
+        }} className="rounded-xl bg-white p-3 text-sm font-normal" />
+        {mobileImages.length > 0 && <div className="grid gap-2 sm:grid-cols-2">
+          {mobileImages.map((file, index) => <div key={`${file.name}-${file.lastModified}-${index}`} className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+            <span className="truncate text-xs font-normal text-gray-700">{index + 1}. {file.name}</span>
+            <button type="button" onClick={() => setMobileImages((current) => current.filter((_, fileIndex) => fileIndex !== index))} className="shrink-0 text-xs text-red-600">Remove</button>
+          </div>)}
+        </div>}
+      </label>
       {selectedCategory?.requiresSize && <div className="grid gap-2 md:col-span-2">
         <p className="text-sm font-semibold">Sizes, stock and SKU</p>
         {variants.map((variant, index) => <div key={variant.size} className="grid grid-cols-3 gap-2"><input value={variant.size} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, size: e.target.value } : item))} placeholder="Size" className="rounded-xl bg-white p-3 text-sm" /><input type="number" min="0" value={variant.stockCount} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, stockCount: Number(e.target.value) } : item))} placeholder="Stock" className="rounded-xl bg-white p-3 text-sm" /><input value={variant.sku} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, sku: e.target.value } : item))} placeholder="SKU" className="rounded-xl bg-white p-3 text-sm" /></div>)}
