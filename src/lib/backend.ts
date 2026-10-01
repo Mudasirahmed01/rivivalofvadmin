@@ -402,7 +402,7 @@ class BackendService {
         headline: banner.headline || '',
         subheadline: banner.subheadline || '',
         cta: banner.cta || '',
-        image_url: imageUrl,
+        image_url: imageUrl || '',
       };
       const query = id
         ? supabase.from('homepage_banners').update(payload).eq('id', id)
@@ -446,7 +446,7 @@ class BackendService {
         title: category.title || 'Untitled category',
         subtitle: category.subtitle || '',
         page: category.page || 'shirts',
-        image_url: imageUrl,
+        image_url: imageUrl || '',
         display_order: category.display_order,
         is_active: category.is_active,
       };

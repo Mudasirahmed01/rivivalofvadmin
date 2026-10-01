@@ -154,16 +154,13 @@ export default function AdminContentManager() {
       setMessage(saved.every(Boolean) ? 'Store settings saved.' : 'Settings save failed.');
       return;
     }
-    if (!editingId && !image) {
-      setMessage('Please select an image before creating new content.');
-      return;
-    }
     setSaving(true);
+    const saveForm = editingId || image ? form : { ...form, is_active: false };
     let saved;
     try {
       saved = mode === 'banners'
-        ? await BackendService.saveHomepageBanner(form, image, editingId)
-        : await BackendService.saveHomepageCategory(form, image, editingId);
+        ? await BackendService.saveHomepageBanner(saveForm, image, editingId)
+        : await BackendService.saveHomepageCategory(saveForm, image, editingId);
     } catch (error) {
       const detail = formatSaveError(error);
       setMessage(`Save failed: ${detail}`);
