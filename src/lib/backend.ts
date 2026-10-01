@@ -40,6 +40,7 @@ const normalizeProduct = (row: any): Product => ({
   updatedAt: row.updatedAt ?? row.updated_at,
   images: (row.images || []).map((image: any) => ({
     url: image.url ?? image.cloudinary_url,
+    mobileUrl: image.mobileUrl ?? image.mobile_url ?? '',
     altText: image.altText ?? image.alt_text ?? '',
     isPrimary: image.isPrimary ?? image.is_primary ?? false,
   })),
@@ -265,13 +266,18 @@ class BackendService {
     product: Partial<Product>,
     images: File[],
     variants: Array<{ size: string; stockCount: number; sku: string }>,
-    id?: string
+    id?: string,
+    mobileImages: File[] = []
   ): Promise<Product | null> {
     let createdProductId: string | null = null;
     let uploadedImages: Awaited<ReturnType<typeof uploadMultipleToCloudinary>> = [];
+    let uploadedMobileImages: Awaited<ReturnType<typeof uploadMultipleToCloudinary>> = [];
     try {
       uploadedImages = images.length
         ? await uploadMultipleToCloudinary(images, 'products')
+        : [];
+      uploadedMobileImages = mobileImages.length
+        ? await uploadMultipleToCloudinary(mobileImages, 'products/mobile')
         : [];
       const productPayload = toDatabaseProduct(product);
       const productQuery = id
@@ -283,23 +289,28 @@ class BackendService {
       const productId = productData.id;
       if (!id) createdProductId = productId;
       if (uploadedImages.length > 0) {
+        let oldImages: any[] = [];
         if (id) {
-          const { data: oldImages } = await supabase
+          const { data, error: oldImagesError } = await supabase
             .from('product_images')
-            .select('cloudinary_public_id')
+            .select('cloudinary_public_id,mobile_url,display_order')
             .eq('product_id', productId);
+          if (oldImagesError) throw oldImagesError;
+          oldImages = data || [];
           await Promise.all(
-            (oldImages || [])
+            oldImages
               .filter((image) => image.cloudinary_public_id)
               .map((image) => this.deleteCloudinaryAsset(image.cloudinary_public_id))
           );
-          await supabase.from('product_images').delete().eq('product_id', productId);
+          const { error: deleteImagesError } = await supabase.from('product_images').delete().eq('product_id', productId);
+          if (deleteImagesError) throw deleteImagesError;
         }
         const { error: imageError } = await supabase.from('product_images').insert(
           uploadedImages.map((image, index) => ({
             product_id: productId,
             url: image.secure_url,
             cloudinary_url: image.secure_url,
+            mobile_url: uploadedMobileImages[index]?.secure_url || oldImages.find((oldImage) => oldImage.display_order === index)?.mobile_url || '',
             cloudinary_public_id: image.public_id,
             alt_text: `${product.title || productData.title} - Image ${index + 1}`,
             is_primary: index === 0,
@@ -307,6 +318,45 @@ class BackendService {
           }))
         );
         if (imageError) throw imageError;
+      } else if (uploadedMobileImages.length > 0) {
+        const { data: existingImages, error: existingImagesError } = await supabase
+          .from('product_images')
+          .select('id,display_order')
+          .eq('product_id', productId)
+          .order('display_order', { ascending: true });
+        if (existingImagesError) throw existingImagesError;
+        if (existingImages?.length) {
+          for (let index = 0; index < uploadedMobileImages.length; index++) {
+            const image = uploadedMobileImages[index];
+            const existing = existingImages.find((item) => item.display_order === index);
+            if (existing) {
+              const { error: mobileUpdateError } = await supabase.from('product_images').update({ mobile_url: image.secure_url }).eq('id', existing.id);
+              if (mobileUpdateError) throw mobileUpdateError;
+            } else {
+              const { error: mobileInsertError } = await supabase.from('product_images').insert({
+                product_id: productId,
+                url: image.secure_url,
+                cloudinary_url: image.secure_url,
+                mobile_url: image.secure_url,
+                alt_text: `${product.title || productData.title} - Image ${index + 1}`,
+                is_primary: false,
+                display_order: index,
+              });
+              if (mobileInsertError) throw mobileInsertError;
+            }
+          }
+        } else {
+          const { error: mobileOnlyError } = await supabase.from('product_images').insert(uploadedMobileImages.map((image, index) => ({
+            product_id: productId,
+            url: image.secure_url,
+            cloudinary_url: image.secure_url,
+            mobile_url: image.secure_url,
+            alt_text: `${product.title || productData.title} - Image ${index + 1}`,
+            is_primary: index === 0,
+            display_order: index,
+          })));
+          if (mobileOnlyError) throw mobileOnlyError;
+        }
       }
 
       if (id) {
@@ -441,17 +491,22 @@ class BackendService {
   static async saveHomepageCategory(
     category: Record<string, unknown>,
     image?: File,
-    id?: string
+    id?: string,
+    mobileImage?: File
   ): Promise<any | null> {
     try {
       const imageUrl = image
         ? (await uploadToCloudinary(image, 'homepage/categories')).secure_url
         : category.image_url;
+      const mobileImageUrl = mobileImage
+        ? (await uploadToCloudinary(mobileImage, 'homepage/categories/mobile')).secure_url
+        : category.mobile_image_url;
       const payload = {
         title: category.title || 'Untitled category',
         subtitle: category.subtitle || '',
         page: category.page || 'shirts',
-        image_url: imageUrl || '',
+        image_url: imageUrl || mobileImageUrl || '',
+        mobile_image_url: mobileImageUrl || '',
         display_order: category.display_order,
         is_active: category.is_active,
       };

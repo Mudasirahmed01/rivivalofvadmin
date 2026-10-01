@@ -1,5 +1,6 @@
 export interface ProductImage {
   url: string;
+  mobileUrl?: string;
   altText: string;
   isPrimary: boolean;
 }

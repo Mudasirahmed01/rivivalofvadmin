@@ -19,7 +19,7 @@ const defaultMenu = (categories: Array<{ key: string; label: string }>): MenuEnt
   { id: 'nav-categories', label: 'CATEGORIES', destination: '', type: 'dropdown', active: true, children: categories.map((category) => ({ id: `category-${category.key}`, label: category.label.toUpperCase(), destination: `category:${category.key}`, type: 'link', active: true, children: [] })) },
 ];
 
-const emptyBanner = { pre_title: '', headline: '', subheadline: '', cta: 'SHOP NOW', image_url: '', display_order: 0, is_active: true };
+const emptyBanner = { pre_title: '', headline: '', subheadline: '', cta: '', image_url: '', display_order: 0, is_active: true };
 const emptyCategory = { title: '', subtitle: '', image_url: '', page: 'shirts', display_order: 0, is_active: true };
 const defaultFooterLinks = {
   brand: [{ label: 'Our Story', destination: 'home', active: true }],
@@ -167,7 +167,7 @@ export default function AdminContentManager() {
     try {
       saved = mode === 'banners'
         ? await BackendService.saveHomepageBanner(saveForm, image, editingId, mobileImage)
-        : await BackendService.saveHomepageCategory(saveForm, image, editingId);
+        : await BackendService.saveHomepageCategory(saveForm, image, editingId, mobileImage);
     } catch (error) {
       const detail = formatSaveError(error);
       setMessage(`Save failed: ${detail}`);
@@ -393,7 +393,7 @@ export default function AdminContentManager() {
     </form> : <form onSubmit={save} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 md:grid-cols-2">
       {mode === 'banners' ? <>
         <input value={form.pre_title || ''} onChange={(e) => update('pre_title', e.target.value)} placeholder="Pre-title (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-        <input value={form.cta || ''} onChange={(e) => update('cta', e.target.value)} placeholder="Button text (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
+        <input value={form.cta || ''} onChange={(e) => update('cta', e.target.value)} placeholder="Leave blank to hide CTA" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
         <input value={form.headline || ''} onChange={(e) => update('headline', e.target.value)} placeholder="Headline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
         <textarea value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
         <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Desktop / laptop image<input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm font-normal" /></label>
@@ -403,7 +403,10 @@ export default function AdminContentManager() {
         <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.filter((category) => category.active).map((category) => <option key={category.key} value={`category:${category.key}`}>{category.label}</option>)}</optgroup>}</select>
         <input value={form.subtitle || ''} onChange={(e) => update('subtitle', e.target.value)} placeholder="Category subtitle (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </>}
-      {mode !== 'banners' && <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />}
+      {mode !== 'banners' && <>
+        <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Desktop / laptop image<input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm font-normal" /></label>
+        <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Mobile image (optional)<input type="file" accept="image/*" onChange={(e) => setMobileImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm font-normal" /></label>
+      </>}
       <input type="number" value={form.display_order || 0} onChange={(e) => update('display_order', Number(e.target.value))} placeholder="Display order" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(form.is_active)} onChange={(e) => update('is_active', e.target.checked)} /> Active</label>
       <div className="flex gap-2 md:col-span-2"><button disabled={saving} className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white">{saving ? 'Uploading...' : editingId ? 'Update' : 'Create'}</button>{editingId && <button type="button" onClick={startNew} className="rounded-full border border-black/10 px-5 py-3 text-sm">Cancel</button>}</div>

@@ -23,6 +23,7 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     tags: product?.tags?.join(', ') || '',
   });
   const [images, setImages] = useState<File[]>([]);
+  const [mobileImages, setMobileImages] = useState<File[]>([]);
   const [variants, setVariants] = useState(() => {
     if (product) return product.variants?.map((variant) => ({ size: variant.size, stockCount: variant.stockCount, sku: variant.sku })) || [];
     return [{ size: 'S', stockCount: 0, sku: '' }, { size: 'M', stockCount: 0, sku: '' }, { size: 'L', stockCount: 0, sku: '' }, { size: 'XL', stockCount: 0, sku: '' }];
@@ -95,7 +96,7 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       category: productCategory,
       homepageSlot: form.homepageSlot || 'none',
     };
-    const saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id);
+    const saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id, mobileImages);
     setSaving(false);
     if (!saved) {
       setError('Could not save product. SKU must be unique; also verify Supabase product, image and variant policies.');
@@ -121,7 +122,8 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       </select>
       <input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="Tags: sale, new-arrival, bestseller" className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
       <textarea value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description (optional)" className="min-h-24 rounded-xl bg-white p-3 text-sm md:col-span-2" />
-      <input type="file" accept="image/*" multiple onChange={(e) => setImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm md:col-span-2" />
+      <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Desktop / laptop product images<input type="file" accept="image/*" multiple onChange={(e) => setImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm font-normal" /></label>
+      <label className="grid gap-2 text-xs font-semibold text-gray-600 md:col-span-2">Mobile product images (match desktop image order; optional)<input type="file" accept="image/*" multiple onChange={(e) => setMobileImages(Array.from(e.target.files || []))} className="rounded-xl bg-white p-3 text-sm font-normal" /></label>
       {selectedCategory?.requiresSize && <div className="grid gap-2 md:col-span-2">
         <p className="text-sm font-semibold">Sizes, stock and SKU</p>
         {variants.map((variant, index) => <div key={variant.size} className="grid grid-cols-3 gap-2"><input value={variant.size} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, size: e.target.value } : item))} placeholder="Size" className="rounded-xl bg-white p-3 text-sm" /><input type="number" min="0" value={variant.stockCount} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, stockCount: Number(e.target.value) } : item))} placeholder="Stock" className="rounded-xl bg-white p-3 text-sm" /><input value={variant.sku} onChange={(e) => setVariants((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, sku: e.target.value } : item))} placeholder="SKU" className="rounded-xl bg-white p-3 text-sm" /></div>)}
