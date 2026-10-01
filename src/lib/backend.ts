@@ -390,12 +390,16 @@ class BackendService {
   static async saveHomepageBanner(
     banner: Record<string, unknown>,
     image?: File,
-    id?: string
+    id?: string,
+    mobileImage?: File
   ): Promise<any | null> {
     try {
       const imageUrl = image
         ? (await uploadToCloudinary(image, 'homepage/banners')).secure_url
         : banner.image_url;
+      const mobileImageUrl = mobileImage
+        ? (await uploadToCloudinary(mobileImage, 'homepage/banners/mobile')).secure_url
+        : banner.mobile_image_url;
       const payload = {
         ...banner,
         pre_title: banner.pre_title || '',
@@ -403,6 +407,7 @@ class BackendService {
         subheadline: banner.subheadline || '',
         cta: banner.cta || '',
         image_url: imageUrl || '',
+        mobile_image_url: mobileImageUrl || '',
       };
       const query = id
         ? supabase.from('homepage_banners').update(payload).eq('id', id)
