@@ -42,7 +42,8 @@ const formatSaveError = (error: unknown) => {
 export default function AdminContentManager() {
   const [mode, setMode] = useState<ContentMode>('banners');
   const [items, setItems] = useState<any[]>([]);
-  const [productCategories, setProductCategories] = useState<string[]>([]);
+  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string; active: boolean }>>([]);
+  const [visibilityCategoryKeys, setVisibilityCategoryKeys] = useState<string[]>([]);
   const [form, setForm] = useState<any>(emptyBanner);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [image, setImage] = useState<File>();
@@ -77,7 +78,7 @@ export default function AdminContentManager() {
     }
     if (mode === 'settings') {
       const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
-      setProductCategories([...new Set(products.map((product) => product.category))].sort());
+      setVisibilityCategoryKeys([...new Set(products.map((product) => product.category))].sort());
       const savedCatalogOptions = storeSettings.catalog_options || { categories: [], placements: [] };
       const missingCatalogCategories = [...new Set(products.map((product) => product.category))]
         .filter((key) => !savedCatalogOptions.categories.some((category: any) => category.key === key))
@@ -107,9 +108,14 @@ export default function AdminContentManager() {
     if (mode === 'banners') {
       setItems(await BackendService.getHomepageBanners());
     } else {
-      const [categories, products] = await Promise.all([BackendService.getHomepageCategories(), BackendService.getProducts()]);
+      const [categories, products, storeSettings] = await Promise.all([BackendService.getHomepageCategories(), BackendService.getProducts(), BackendService.getStoreSettings()]);
       setItems(categories);
-      setProductCategories([...new Set(products.map((product) => product.category).filter((category) => !['tops', 'bottoms'].includes(category)))].sort());
+      const savedCategories = storeSettings.catalog_options?.categories || [];
+      const existingKeys = new Set(savedCategories.map((category: { key: string }) => category.key));
+      const legacyCategories = [...new Set(products.map((product) => product.category))]
+        .filter((key) => !existingKeys.has(key))
+        .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), active: true }));
+      setProductCategories([...savedCategories, ...legacyCategories]);
     }
   };
   useEffect(() => { load(); }, [mode]);
@@ -327,7 +333,7 @@ export default function AdminContentManager() {
         <p className="text-xs text-gray-500">Turn sections off without deleting products or content. You can enable them again anytime.</p>
         <p className="text-xs font-semibold text-gray-600">Product categories</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          {[...new Set(['tops', 'bottoms', ...productCategories])].map((category) => (
+          {[...new Set(['tops', 'bottoms', ...visibilityCategoryKeys])].map((category) => (
             <label key={category} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={visibility.disabledCategories.includes(category)} onChange={(event) => setVisibility((current) => ({ ...current, disabledCategories: event.target.checked ? [...current.disabledCategories, category] : current.disabledCategories.filter((item) => item !== category) }))} /> Hide {category === 'tops' ? 'Shirts' : category === 'bottoms' ? 'Pants' : category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</label>
           ))}
         </div>
@@ -391,7 +397,7 @@ export default function AdminContentManager() {
         <textarea value={form.subheadline || ''} onChange={(e) => update('subheadline', e.target.value)} placeholder="Subheadline (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </> : <>
         <input value={form.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Category title (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
-        <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.map((category) => <option key={category} value={`category:${category}`}>{category.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}</optgroup>}</select>
+        <select value={form.page || 'shirts'} onChange={(e) => update('page', e.target.value)} className="rounded-xl bg-[#F5F5F7] p-3 text-sm"><option value="shirts">Shirts</option><option value="pants">Pants</option><option value="new-releases">New Releases</option>{productCategories.length > 0 && <optgroup label="Product categories">{productCategories.filter((category) => category.active).map((category) => <option key={category.key} value={`category:${category.key}`}>{category.label}</option>)}</optgroup>}</select>
         <input value={form.subtitle || ''} onChange={(e) => update('subtitle', e.target.value)} placeholder="Category subtitle (optional)" className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
       </>}
       <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])} className="rounded-xl bg-[#F5F5F7] p-3 text-sm md:col-span-2" />
