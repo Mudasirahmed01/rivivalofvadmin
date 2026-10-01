@@ -6,7 +6,7 @@ type MenuEntry = { id: string; label: string; destination: string; type: 'link' 
 
 const pageDestinations = [
   ['home', 'Home'], ['all-products', 'All Products'], ['new-releases', 'New Releases'],
-  ['best-sellers', 'Best Sellers'], ['shirts', 'Shirts'], ['pants', 'Pants'],
+  ['best-sellers', 'Best Sellers'], ['shirts', 'Shirts'], ['pants', 'Pants'], ['perfumes', 'Perfumes'],
   ['account', 'Account'], ['auth', 'Sign in'], ['checkout', 'Checkout'],
   ['wishlist', 'Wishlist'], ['shipping', 'Shipping & Returns'], ['terms', 'Terms'],
   ['privacy', 'Privacy'], ['contact', 'Contact'],
@@ -51,7 +51,7 @@ export default function AdminContentManager() {
   const [settings, setSettings] = useState({ free_shipping_threshold: '', delivery_charge: '', tax_rate: '', marquee_items: '', brand_statement: '', login_title: 'Welcome Back', login_tagline: 'Sign in to your account', signup_title: 'Create Account', signup_tagline: 'Join REVIVAL OF V' });
   const [footerLinks, setFooterLinks] = useState(defaultFooterLinks);
   const [footerNewsletterText, setFooterNewsletterText] = useState('Get product news and special offers by email.');
-  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
+  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean; showOnPerfumesPage?: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
   const [navigationItems, setNavigationItems] = useState<MenuEntry[]>([]);
   const [newNavigationLabel, setNewNavigationLabel] = useState('');
   const [newNavigationDestination, setNewNavigationDestination] = useState('home');
@@ -243,10 +243,11 @@ export default function AdminContentManager() {
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newCategoryRequiresSize} onChange={(event) => setNewCategoryRequiresSize(event.target.checked)} /> Requires size</label>
           <button type="button" onClick={addCategory} className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add category</button>
         </div>
-        {catalogOptions.categories.map((category, index) => <div key={category.key} className="grid items-center gap-2 border-t border-black/5 pt-2 sm:grid-cols-[1fr_auto_auto_auto]">
+        {catalogOptions.categories.map((category, index) => <div key={category.key} className="grid items-center gap-2 border-t border-black/5 pt-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
           <input value={category.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
           <code className="text-xs text-gray-500">{category.key}</code>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.requiresSize} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, requiresSize: event.target.checked } : item) }))} /> Size required</label>
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(category.showOnPerfumesPage)} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, showOnPerfumesPage: event.target.checked } : item) }))} /> Perfumes page</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.active} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, active: event.target.checked } : item) }))} /> Active</label>
         </div>)}
       </section>
@@ -369,6 +370,7 @@ export default function AdminContentManager() {
             ['best-sellers', 'Best Sellers page'],
             ['shirts', 'Shirts page'],
             ['pants', 'Pants page'],
+            ['perfumes', 'Perfumes page'],
             ['account', 'Account page'],
             ['auth', 'Sign in / Sign up page'],
             ['checkout', 'Checkout page'],
