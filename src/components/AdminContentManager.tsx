@@ -56,7 +56,7 @@ export default function AdminContentManager() {
   const [mobileHeaderLogoFile, setMobileHeaderLogoFile] = useState<File>();
   const [footerLinks, setFooterLinks] = useState(defaultFooterLinks);
   const [footerNewsletterText, setFooterNewsletterText] = useState('Get product news and special offers by email.');
-  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean; showOnPerfumesPage?: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
+  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; requiresFabricDetails?: boolean; subcategories?: Array<{ key: string; label: string }>; active: boolean; showOnPerfumesPage?: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
   const [navigationItems, setNavigationItems] = useState<MenuEntry[]>([]);
   const [newNavigationLabel, setNewNavigationLabel] = useState('');
   const [newNavigationDestination, setNewNavigationDestination] = useState('home');
@@ -65,6 +65,8 @@ export default function AdminContentManager() {
   const [newChildDestinations, setNewChildDestinations] = useState<Record<string, string>>({});
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
   const [newCategoryRequiresSize, setNewCategoryRequiresSize] = useState(false);
+  const [newCategoryRequiresFabricDetails, setNewCategoryRequiresFabricDetails] = useState(true);
+  const [newSubcategoryLabels, setNewSubcategoryLabels] = useState<Record<string, string>>({});
   const [newPlacementLabel, setNewPlacementLabel] = useState('');
   const [visibility, setVisibility] = useState({ disabledCategories: [] as string[], disabledSections: [] as string[], disabledPages: [] as string[] });
 
@@ -72,10 +74,15 @@ export default function AdminContentManager() {
     if (mode === 'catalog') {
       const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
       const options = storeSettings.catalog_options || { categories: [], placements: [] };
+      const savedCategories = (Array.isArray(options.categories) ? options.categories : []).map((category: any) => ({
+        ...category,
+        requiresFabricDetails: category.requiresFabricDetails ?? !/perfume|fragrance/i.test(category.key),
+        subcategories: Array.isArray(category.subcategories) ? category.subcategories : [],
+      }));
       const missingCategories = [...new Set(products.map((product) => product.category))]
-        .filter((key) => !options.categories.some((category: any) => category.key === key))
+        .filter((key) => !savedCategories.some((category: any) => category.key === key))
         .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((product) => product.category === key && product.variants.length > 0), active: true }));
-      const categories = [...options.categories, ...missingCategories];
+      const categories = [...savedCategories, ...missingCategories.map((category) => ({ ...category, requiresFabricDetails: !/perfume|fragrance/i.test(category.key), subcategories: [] }))];
       setCatalogOptions({ ...options, categories, placements: Array.isArray(options.placements) ? options.placements : [] });
       setNavigationItems(storeSettings.storefront_navigation?.items || defaultMenu(categories.filter((category: any) => category.active)));
       return;
@@ -84,10 +91,15 @@ export default function AdminContentManager() {
       const [storeSettings, products] = await Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]);
       setVisibilityCategoryKeys([...new Set(products.map((product) => product.category))].sort());
       const savedCatalogOptions = storeSettings.catalog_options || { categories: [], placements: [] };
+      const settingsCategories = (Array.isArray(savedCatalogOptions.categories) ? savedCatalogOptions.categories : []).map((category: any) => ({
+        ...category,
+        requiresFabricDetails: category.requiresFabricDetails ?? !/perfume|fragrance/i.test(category.key),
+        subcategories: Array.isArray(category.subcategories) ? category.subcategories : [],
+      }));
       const missingCatalogCategories = [...new Set(products.map((product) => product.category))]
-        .filter((key) => !savedCatalogOptions.categories.some((category: any) => category.key === key))
+        .filter((key) => !settingsCategories.some((category: any) => category.key === key))
         .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((product) => product.category === key && product.variants.length > 0), active: true }));
-      setCatalogOptions({ ...savedCatalogOptions, categories: [...savedCatalogOptions.categories, ...missingCatalogCategories] });
+      setCatalogOptions({ ...savedCatalogOptions, categories: [...settingsCategories, ...missingCatalogCategories.map((category) => ({ ...category, requiresFabricDetails: !/perfume|fragrance/i.test(category.key), subcategories: [] }))] });
       const storefrontVisibility = storeSettings.storefront_visibility || {};
       setSettings({
         free_shipping_threshold: String(storeSettings.checkout?.free_shipping_threshold || ''),
@@ -207,9 +219,27 @@ export default function AdminContentManager() {
     const label = newCategoryLabel.trim();
     const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     if (!key || catalogOptions.categories.some((category) => category.key === key)) return;
-    setCatalogOptions((current) => ({ ...current, categories: [...current.categories, { key, label, requiresSize: newCategoryRequiresSize, active: true }] }));
+    const requiresFabricDetails = /perfume|fragrance/i.test(key) ? false : newCategoryRequiresFabricDetails;
+    setCatalogOptions((current) => ({ ...current, categories: [...current.categories, { key, label, requiresSize: newCategoryRequiresSize, requiresFabricDetails, subcategories: [], active: true }] }));
     setNewCategoryLabel('');
     setNewCategoryRequiresSize(false);
+    setNewCategoryRequiresFabricDetails(true);
+  };
+
+  const addSubcategory = (categoryKey: string) => {
+    const label = (newSubcategoryLabels[categoryKey] || '').trim();
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!key) return;
+    setCatalogOptions((current) => ({
+      ...current,
+      categories: current.categories.map((category) => {
+        if (category.key !== categoryKey) return category;
+        const subcategories = category.subcategories || [];
+        if (subcategories.some((subcategory) => subcategory.key === key)) return category;
+        return { ...category, subcategories: [...subcategories, { key, label }] };
+      }),
+    }));
+    setNewSubcategoryLabels((current) => ({ ...current, [categoryKey]: '' }));
   };
 
   const addPlacement = () => {
@@ -257,17 +287,30 @@ export default function AdminContentManager() {
     {mode === 'catalog' ? <form onSubmit={save} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5">
       <section className="space-y-3">
         <h3 className="text-sm font-bold">Product categories</h3>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
           <input value={newCategoryLabel} onChange={(event) => setNewCategoryLabel(event.target.value)} placeholder="New category name" className="rounded-xl bg-[#F5F5F7] p-3 text-sm" />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newCategoryRequiresSize} onChange={(event) => setNewCategoryRequiresSize(event.target.checked)} /> Requires size</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newCategoryRequiresFabricDetails} onChange={(event) => setNewCategoryRequiresFabricDetails(event.target.checked)} /> Requires fabric details</label>
           <button type="button" onClick={addCategory} className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add category</button>
         </div>
-        {catalogOptions.categories.map((category, index) => <div key={category.key} className="grid items-center gap-2 border-t border-black/5 pt-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
-          <input value={category.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
-          <code className="text-xs text-gray-500">{category.key}</code>
-          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.requiresSize} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, requiresSize: event.target.checked } : item) }))} /> Size required</label>
-          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(category.showOnPerfumesPage)} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, showOnPerfumesPage: event.target.checked } : item) }))} /> Perfumes page</label>
-          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.active} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, active: event.target.checked } : item) }))} /> Active</label>
+        {catalogOptions.categories.map((category, index) => <div key={category.key} className="grid gap-2 border-t border-black/5 pt-3">
+          <div className="grid items-center gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto_auto]">
+            <input value={category.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+            <code className="text-xs text-gray-500">{category.key}</code>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.requiresSize} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, requiresSize: event.target.checked } : item) }))} /> Size required</label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.requiresFabricDetails !== false} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, requiresFabricDetails: event.target.checked } : item) }))} /> Fabric details</label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(category.showOnPerfumesPage)} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, showOnPerfumesPage: event.target.checked } : item) }))} /> Perfumes page</label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={category.active} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item, itemIndex) => itemIndex === index ? { ...item, active: event.target.checked } : item) }))} /> Active</label>
+          </div>
+          <div className="grid gap-2 pl-3 sm:grid-cols-[1fr_auto]">
+            <input value={newSubcategoryLabels[category.key] || ''} onChange={(event) => setNewSubcategoryLabels((current) => ({ ...current, [category.key]: event.target.value }))} placeholder={`Add subcategory under ${category.label}, e.g. Women, Men, Unisex`} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+            <button type="button" onClick={() => addSubcategory(category.key)} className="rounded-full border border-black/10 px-3 py-2 text-sm">Add subcategory</button>
+          </div>
+          {(category.subcategories || []).map((subcategory) => <div key={subcategory.key} className="grid items-center gap-2 pl-3 sm:grid-cols-[1fr_auto_auto]">
+            <input value={subcategory.label} onChange={(event) => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item) => item.key === category.key ? { ...item, subcategories: (item.subcategories || []).map((nested) => nested.key === subcategory.key ? { ...nested, label: event.target.value } : nested) } : item) }))} className="rounded-lg bg-[#F5F5F7] p-2 text-sm" />
+            <code className="text-xs text-gray-500">{subcategory.key}</code>
+            <button type="button" onClick={() => setCatalogOptions((current) => ({ ...current, categories: current.categories.map((item) => item.key === category.key ? { ...item, subcategories: (item.subcategories || []).filter((nested) => nested.key !== subcategory.key) } : item) }))} className="text-xs text-red-600">Remove</button>
+          </div>)}
         </div>)}
       </section>
       <section className="space-y-3 border-t border-black/10 pt-4">

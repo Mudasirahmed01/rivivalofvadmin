@@ -20,7 +20,7 @@ interface AdminProductFormProps {
 }
 
 export default function AdminProductForm({ product, onSaved, onCancel }: AdminProductFormProps) {
-  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; active: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
+  const [catalogOptions, setCatalogOptions] = useState<{ categories: Array<{ key: string; label: string; requiresSize: boolean; requiresFabricDetails?: boolean; subcategories?: Array<{ key: string; label: string }>; active: boolean }>; placements: Array<{ key: string; label: string; active: boolean }> }>({ categories: [], placements: [] });
   const [form, setForm] = useState({
     title: product?.title || '',
     slug: product?.slug || '',
@@ -29,6 +29,7 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
     description: product?.description || '',
     fabricDetails: product?.fabricDetails || '',
     category: product?.category || '',
+    subcategory: product?.subcategory || '',
     homepageSlot: product?.homepageSlot || '',
     isPublished: product?.isPublished ?? true,
     tags: product?.tags?.join(', ') || '',
@@ -45,19 +46,24 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
   useEffect(() => {
     Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]).then(([settings, products]) => {
       const options = settings.catalog_options || { categories: [], placements: [] };
-      const categories = Array.isArray(options.categories) ? options.categories : [];
+      const categories = (Array.isArray(options.categories) ? options.categories : []).map((category: any) => ({
+        ...category,
+        requiresFabricDetails: category.requiresFabricDetails ?? !/perfume|fragrance/i.test(category.key),
+        subcategories: Array.isArray(category.subcategories) ? category.subcategories : [],
+      }));
       const missingCategories = [...new Set(products.map((item) => item.category))]
         .filter((key) => !categories.some((category: any) => category.key === key))
-        .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((item) => item.category === key && item.variants.length > 0), active: true }));
+        .map((key) => ({ key, label: key.replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), requiresSize: products.some((item) => item.category === key && item.variants.length > 0), requiresFabricDetails: !/perfume|fragrance/i.test(key), subcategories: [], active: true }));
       options.categories = [...categories, ...missingCategories];
       if (product?.category && !options.categories.some((category: any) => category.key === product.category)) {
-        options.categories = [...options.categories, { key: product.category, label: product.category, requiresSize: product.variants.length > 0, active: true }];
+        options.categories = [...options.categories, { key: product.category, label: product.category, requiresSize: product.variants.length > 0, requiresFabricDetails: !/perfume|fragrance/i.test(product.category), subcategories: [], active: true }];
       }
       setCatalogOptions(options);
     });
   }, [product?.category]);
 
   const selectedCategory = catalogOptions.categories.find((category) => category.key === form.category);
+  const selectedSubcategories = selectedCategory?.subcategories || [];
 
   const update = (field: string, value: string | boolean) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -101,10 +107,11 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       slug: normalizedSlug,
       price: Number(form.price) || 0,
       description: form.description.trim(),
-      fabricDetails: form.fabricDetails.trim(),
+      fabricDetails: selectedCategory?.requiresFabricDetails === false ? '' : form.fabricDetails.trim(),
       compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : undefined,
       tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
       category: productCategory,
+      subcategory: selectedCategory?.subcategories?.some((subcategory) => subcategory.key === form.subcategory) ? form.subcategory : '',
       homepageSlot: form.homepageSlot || 'none',
     };
     let saved;
@@ -130,11 +137,15 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       <input value={form.slug} onChange={(e) => update('slug', e.target.value)} placeholder="Slug (generated if blank)" className="rounded-xl bg-white p-3 text-sm" />
       <input type="number" min="0" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price (defaults to 0)" className="rounded-xl bg-white p-3 text-sm" />
       <input type="number" min="0" value={form.compareAtPrice} onChange={(e) => update('compareAtPrice', e.target.value)} placeholder="Sale compare price (optional)" className="rounded-xl bg-white p-3 text-sm" />
-      <input value={form.fabricDetails} onChange={(e) => update('fabricDetails', e.target.value)} placeholder="Fabric details" className="rounded-xl bg-white p-3 text-sm" />
+      {selectedCategory?.requiresFabricDetails !== false && <input value={form.fabricDetails} onChange={(e) => update('fabricDetails', e.target.value)} placeholder="Fabric details (optional)" className="rounded-xl bg-white p-3 text-sm" />}
       <select value={form.category} onChange={(e) => update('category', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
         <option value="">Default category</option>
         {catalogOptions.categories.filter((category) => category.active).map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}
       </select>
+      {selectedSubcategories.length > 0 && <select value={form.subcategory} onChange={(e) => update('subcategory', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
+        <option value="">Select subcategory (optional)</option>
+        {selectedSubcategories.map((subcategory) => <option key={subcategory.key} value={subcategory.key}>{subcategory.label}</option>)}
+      </select>}
       <select value={form.homepageSlot} onChange={(e) => update('homepageSlot', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
         {catalogOptions.placements.filter((placement) => placement.active).map((placement) => <option key={placement.key} value={placement.key}>{placement.label}</option>)}
       </select>

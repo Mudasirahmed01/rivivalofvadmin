@@ -27,6 +27,7 @@ export interface Product {
   fabricDetails: string;
   images: ProductImage[];
   category: string;
+  subcategory?: string;
   homepageSlot: string;
   variants: ProductVariant[];
   colors?: ProductColor[];
