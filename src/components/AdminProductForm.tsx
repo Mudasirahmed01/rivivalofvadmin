@@ -42,6 +42,7 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [newSubcategoryLabel, setNewSubcategoryLabel] = useState('');
 
   useEffect(() => {
     Promise.all([BackendService.getStoreSettings(), BackendService.getProducts()]).then(([settings, products]) => {
@@ -66,6 +67,20 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
   const selectedSubcategories = selectedCategory?.subcategories || [];
 
   const update = (field: string, value: string | boolean) => setForm((current) => ({ ...current, [field]: value }));
+
+  const addSubcategory = () => {
+    const label = newSubcategoryLabel.trim();
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!selectedCategory || !key || selectedSubcategories.some((subcategory) => subcategory.key === key)) return;
+    setCatalogOptions((current) => ({
+      ...current,
+      categories: current.categories.map((category) => category.key === selectedCategory.key
+        ? { ...category, subcategories: [...(category.subcategories || []), { key, label }] }
+        : category),
+    }));
+    update('subcategory', key);
+    setNewSubcategoryLabel('');
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -114,6 +129,22 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       subcategory: selectedCategory?.subcategories?.some((subcategory) => subcategory.key === form.subcategory) ? form.subcategory : '',
       homepageSlot: form.homepageSlot || 'none',
     };
+    if (newSubcategoryLabel.trim()) {
+      setSaving(false);
+      setError('Click Add subcategory beside the field before saving the product.');
+      return;
+    }
+    if (selectedCategory && !selectedCategory.subcategories?.some((subcategory) => subcategory.key === form.subcategory)) {
+      setSaving(false);
+      setError('Choose a subcategory from this category or leave it blank.');
+      return;
+    }
+    const catalogSaved = await BackendService.saveStoreSetting('catalog_options', catalogOptions);
+    if (!catalogSaved) {
+      setSaving(false);
+      setError('Could not save category options. Check admin access to store_settings, then retry.');
+      return;
+    }
     let saved;
     try {
       saved = await BackendService.saveProduct(payload, images, normalizedVariants, product?.id, mobileImages);
@@ -138,14 +169,20 @@ export default function AdminProductForm({ product, onSaved, onCancel }: AdminPr
       <input type="number" min="0" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price (defaults to 0)" className="rounded-xl bg-white p-3 text-sm" />
       <input type="number" min="0" value={form.compareAtPrice} onChange={(e) => update('compareAtPrice', e.target.value)} placeholder="Sale compare price (optional)" className="rounded-xl bg-white p-3 text-sm" />
       {selectedCategory?.requiresFabricDetails !== false && <input value={form.fabricDetails} onChange={(e) => update('fabricDetails', e.target.value)} placeholder="Fabric details (optional)" className="rounded-xl bg-white p-3 text-sm" />}
-      <select value={form.category} onChange={(e) => update('category', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
+      <select value={form.category} onChange={(e) => { update('category', e.target.value); update('subcategory', ''); }} className="rounded-xl bg-white p-3 text-sm">
         <option value="">Default category</option>
         {catalogOptions.categories.filter((category) => category.active).map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}
       </select>
-      {selectedSubcategories.length > 0 && <select value={form.subcategory} onChange={(e) => update('subcategory', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
-        <option value="">Select subcategory (optional)</option>
-        {selectedSubcategories.map((subcategory) => <option key={subcategory.key} value={subcategory.key}>{subcategory.label}</option>)}
-      </select>}
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto] md:col-span-2">
+        <select value={form.subcategory} onChange={(e) => update('subcategory', e.target.value)} disabled={!selectedCategory} aria-label="Product subcategory" className="rounded-xl bg-white p-3 text-sm disabled:cursor-not-allowed disabled:opacity-60">
+          <option value="">{selectedCategory ? 'No subcategory (optional)' : 'Choose a category first'}</option>
+          {selectedSubcategories.map((subcategory) => <option key={subcategory.key} value={subcategory.key}>{subcategory.label}</option>)}
+        </select>
+        <div className="flex gap-2">
+          <input value={newSubcategoryLabel} onChange={(event) => setNewSubcategoryLabel(event.target.value)} disabled={!selectedCategory} placeholder="New subcategory, e.g. Women, Men, Unisex" className="min-w-0 flex-1 rounded-xl bg-white p-3 text-sm disabled:opacity-60" />
+          <button type="button" onClick={addSubcategory} disabled={!selectedCategory || !newSubcategoryLabel.trim()} className="rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">Add</button>
+        </div>
+      </div>
       <select value={form.homepageSlot} onChange={(e) => update('homepageSlot', e.target.value)} className="rounded-xl bg-white p-3 text-sm">
         {catalogOptions.placements.filter((placement) => placement.active).map((placement) => <option key={placement.key} value={placement.key}>{placement.label}</option>)}
       </select>
